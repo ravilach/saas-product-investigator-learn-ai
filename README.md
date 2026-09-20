@@ -41,7 +41,7 @@ same idea, broken into small, verifiable steps.
 | [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md) | Incremental local build/test/run checkpoints — start here if you're developing, not just running it |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How the pieces fit together, with diagrams, and *why* the non-obvious choices were made |
 | [`docs/SETUP.md`](docs/SETUP.md) | Full environment variable reference, running locally with and without Docker, running the tests |
-| `docs/API.md` _(pending — step 7)_ | REST endpoint reference (also live at `/swagger-ui.html`) |
+| [`docs/API.md`](docs/API.md) | REST endpoint reference (also live at `/swagger-ui.html`) |
 | `docs/DEPLOYMENT.md` _(pending — step 12)_ | Docker, docker-compose, Kubernetes, ECS, and the Harness CI/CD pipeline samples |
 | [`docs/decisions/`](docs/decisions/) | Short ADRs for architecture decisions made along the way |
 

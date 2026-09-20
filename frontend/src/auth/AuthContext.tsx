@@ -55,6 +55,16 @@ export interface AuthContextValue {
   login: (username: string, password: string) => Promise<User>;
   /** Discards the session and clears cached data. */
   logout: () => void;
+  /**
+   * Replaces the signed-in user record, in state and in the persisted session.
+   *
+   * For the case where an endpoint has just returned an updated copy of the caller - changing the
+   * preferred LLM provider is the only one today. Applying the response directly avoids a second
+   * `/api/auth/me` round trip purely to learn something the first response already said.
+   *
+   * @param user the updated user record
+   */
+  applyUser: (user: User) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
