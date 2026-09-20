@@ -15,8 +15,11 @@ LLM does the comparing, on whatever schedule and at whatever depth you ask for. 
 > system-wide keys with a documented resolution order, JWT signing-secret rotation, encryption at rest for all of
 > them), LLM orchestration over SSE, and the REST API with role enforcement — plus the frontend shell: design
 > tokens and the light/dark toggle, TanStack Query, route-level code-splitting, the sidebar-to-drawer responsive
-> layout, login with route guards, and the shared error-boundary/toast layer. Still landing: the individual
-> frontend screens and the container image. Docs marked _(pending)_ below arrive with the step that produces them.
+> layout, login with route guards, and the shared error-boundary/toast layer. Also in place: the deployment samples
+> for docker-compose, Kubernetes and ECS Fargate, the two Harness pipelines that build and roll them out, the docs
+> below, and the eleven Claude skills. **Still landing: the individual frontend screens (step 9) and the container
+> image (step 11)** — which is why the quick start below doesn't work yet, and why checkpoints 4 and 5 in
+> [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md) are not marked verified.
 
 ## Quick start (MVP)
 
@@ -42,7 +45,7 @@ same idea, broken into small, verifiable steps.
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How the pieces fit together, with diagrams, and *why* the non-obvious choices were made |
 | [`docs/SETUP.md`](docs/SETUP.md) | Full environment variable reference, running locally with and without Docker, running the tests |
 | [`docs/API.md`](docs/API.md) | REST endpoint reference (also live at `/swagger-ui.html`) |
-| `docs/DEPLOYMENT.md` _(pending — step 12)_ | Docker, docker-compose, Kubernetes, ECS, and the Harness CI/CD pipeline samples |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Docker, docker-compose, Kubernetes, ECS, metrics and scraping, and the Harness CI/CD pipeline samples |
 | [`docs/decisions/`](docs/decisions/) | Short ADRs for architecture decisions made along the way |
 
 ## Using Claude against this repo
@@ -60,9 +63,10 @@ syntax needed. Just describe what you're doing in plain language and the right o
 | "We should rotate our Anthropic key" | `rotate-secrets` |
 | "Everyone got logged out and I don't know why" | `troubleshoot-running-instance` |
 
-Full list and categories (Architecture / Build / Deployment / Testing / Troubleshooting) in `.claude/skills/`. If
-Claude's about to do something that isn't covered by an existing skill but probably should be, that's usually a
-sign to add one — see the `update-docs` skill. _(The skills land in step 13.)_
+Eleven of them, in [`.claude/skills/`](.claude/skills/) — one flat folder each, all four others being
+`manage-roles-and-permissions`, `add-llm-provider`, `local-dev-loop` and `update-docs`. If Claude's about to do
+something that isn't covered by an existing skill but probably should be, that's usually a sign to add one — see the
+`update-docs` skill.
 
 ## Tech stack
 

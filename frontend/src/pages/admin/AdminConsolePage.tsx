@@ -1,6 +1,11 @@
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import { usePageTitle } from '../../layout/usePageTitle';
-import { UnderConstruction } from '../UnderConstruction';
+import { AuditLogTab } from './AuditLogTab';
+import { DataExplorerTab } from './DataExplorerTab';
+import { OverviewTab } from './OverviewTab';
+import { SecretsTab } from './SecretsTab';
+import { SettingsTab } from './SettingsTab';
+import { UsersTab } from './UsersTab';
 import styles from './AdminConsolePage.module.css';
 
 /**
@@ -35,60 +40,12 @@ export function AdminConsolePage() {
 
       <Routes>
         <Route index element={<Navigate to="/admin/overview" replace />} />
-        <Route
-          path="overview"
-          element={
-            <UnderConstruction
-              page="Overview"
-              description="Will show the stat cards from /api/admin/stats and the status list from /api/admin/health, plus a link to /swagger-ui.html."
-            />
-          }
-        />
-        <Route
-          path="users"
-          element={
-            <UnderConstruction
-              page="Users"
-              description="Will list users with a per-row password reset dialog - which sets a new password and never displays the current one."
-            />
-          }
-        />
-        <Route
-          path="secrets"
-          element={
-            <UnderConstruction
-              page="Secrets"
-              description="Will list the provider overrides and the JWT signing secret with a source indicator each, and a confirmation dialog on the JWT row."
-            />
-          }
-        />
-        <Route
-          path="audit-log"
-          element={
-            <UnderConstruction
-              page="Audit Log"
-              description="Will show a filterable, paginated table of actions, actor, target, and timestamp."
-            />
-          }
-        />
-        <Route
-          path="settings"
-          element={
-            <UnderConstruction
-              page="Settings"
-              description="Will hold the crawl defaults from /api/admin/settings."
-            />
-          }
-        />
-        <Route
-          path="data-explorer"
-          element={
-            <UnderConstruction
-              page="Data Explorer"
-              description="Will show a collection picker, a paginated document table, and a detail panel where masked fields render as a disabled [encrypted] chip."
-            />
-          }
-        />
+        <Route path="overview" element={<OverviewTab />} />
+        <Route path="users" element={<UsersTab />} />
+        <Route path="secrets" element={<SecretsTab />} />
+        <Route path="audit-log" element={<AuditLogTab />} />
+        <Route path="settings" element={<SettingsTab />} />
+        <Route path="data-explorer" element={<DataExplorerTab />} />
         <Route path="*" element={<Navigate to="/admin/overview" replace />} />
       </Routes>
     </div>

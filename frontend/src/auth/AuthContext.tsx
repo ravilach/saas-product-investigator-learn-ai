@@ -185,6 +185,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [queryClient],
   );
 
+  const applyUser = useCallback((fresh: User) => {
+    setUser(fresh);
+    const session = loadSession();
+    if (session) saveSession({ ...session, user: fresh });
+  }, []);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
@@ -193,8 +199,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin: user?.role === 'ADMIN',
       login,
       logout,
+      applyUser,
     }),
-    [user, initialising, login, logout],
+    [user, initialising, login, logout, applyUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

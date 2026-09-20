@@ -1,0 +1,149 @@
+# PLACEHOLDER VALUES - this does not run unmodified. Every YOUR_* below must be
+# replaced with an identifier that exists in your Harness account first; what each
+# one needs to become is documented in docs/DEPLOYMENT.md.
+#
+# Paste into Harness (Pipelines -> New Pipeline -> Edit YAML), or point a Harness
+# Git Experience pipeline at this file.
+#
+# What this pipeline is for: tests, then an image. `docker build` in this repo runs
+# `mvn package -DskipTests` and never executes a test - that is deliberate, so the
+# quick-start path works regardless of test state (see docs/SETUP.md). The
+# consequence is that the Dockerfile is not a quality gate and is not pretending to
+# be one. This pipeline is where that gate actually lives: the test steps run
+# before the build step, so a red suite fails the pipeline and no image is pushed.
+#
+# The same reasoning is why the test steps are separate from the build step rather
+# than folded into the Dockerfile as a test stage. A test stage inside the image
+# build would couple "can we ship this" to "can we build this" and lose the
+# property that a broken test never blocks a local `docker run`.
+pipeline:
+  name: SaaS Product Investigator - CI Build
+  identifier: saas_investigator_ci_build
+  # PLACEHOLDER: the project and org this pipeline lives in.
+  projectIdentifier: YOUR_PROJECT_ID
+  orgIdentifier: YOUR_ORG_ID
+
+  # PLACEHOLDER: the Harness connector for this repository, plus the build trigger
+  # default. `<+input>` makes the branch a runtime input so the same pipeline can
+  # build a PR branch; replace it with a literal to pin it.
+  properties:
+    ci:
+      codebase:
+        connectorRef: YOUR_CODE_REPO_CONNECTOR
+        repoName: saas-product-investigator-learn-ai
+        build: <+input>
+
+  stages:
+    - stage:
+        name: Build and Test
+        identifier: build_and_test
+        type: CI
+        spec:
+          cloneCodebase: true
+
+          # PLACEHOLDER: a Kubernetes cluster connector Harness can run build pods
+          # in, and a namespace that exists in it. Harness Cloud
+          # (`platform: {os: Linux, arch: Amd64}` with `runtime: {type: Cloud}`)
+          # is the alternative if you would rather not supply build infrastructure.
+          infrastructure:
+            type: KubernetesDirect
+            spec:
+              connectorRef: YOUR_K8S_BUILD_INFRA_CONNECTOR
+              namespace: harness-builds
+
+          # Maven's local repository and npm's cache, kept between steps in this
+          # stage. Without this the frontend step re-resolves everything from
+          # scratch in its own container, which is most of the wall-clock time of
+          # an otherwise fast pipeline.
+          sharedPaths:
+            - /root/.m2
+            - /root/.npm
+
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: Backend tests + JaCoCo
+                  identifier: backend_tests
+                  spec:
+                    # An image with JDK 25 and Maven. The build sets
+                    # maven.compiler.release=25, so anything older fails to
+                    # compile rather than producing a subtly different artifact.
+                    connectorRef: YOUR_DOCKER_HUB_CONNECTOR
+                    image: maven:3.9-eclipse-temurin-25
+                    shell: Sh
+                    command: |
+                      cd backend
+                      mvn -B test jacoco:report
+                    reports:
+                      type: JUnit
+                      spec:
+                        paths:
+                          # Path is from the workspace root, not from the `cd`
+                          # above - the report is collected after the shell exits.
+                          - backend/target/surefire-reports/*.xml
+                    # Some backend tests start a real MongoDB with Testcontainers,
+                    # because the queries they cover (dynamic filters,
+                    # count-before-paginate) prove nothing against a mock. They
+                    # fail rather than skip when no Docker daemon is reachable,
+                    # which is the correct behaviour and also means this step needs
+                    # a usable daemon in the build pod.
+                    #
+                    # On KubernetesDirect that means either a Docker-in-Docker
+                    # background step in this stage or a mounted host socket -
+                    # both are cluster-policy decisions, so neither is assumed
+                    # here. Harness Cloud provides a daemon out of the box. If you
+                    # have neither, this step fails with "Could not find a valid
+                    # Docker environment"; excluding those tests to get green
+                    # would delete the only coverage of the Mongo query layer.
+                    envVariables:
+                      DOCKER_HOST: tcp://localhost:2375
+
+              - step:
+                  type: Run
+                  name: Frontend tests
+                  identifier: frontend_tests
+                  spec:
+                    connectorRef: YOUR_DOCKER_HUB_CONNECTOR
+                    image: node:20
+                    shell: Sh
+                    command: |
+                      cd frontend
+                      npm ci
+                      npm test -- --run
+                    # `npm test` alone stays in watch mode and would hang the
+                    # pipeline until it timed out; `-- --run` is what makes Vitest
+                    # exit. `npm ci` rather than `npm install` so a CI run can
+                    # never quietly resolve a different dependency tree than the
+                    # lockfile describes.
+
+              - step:
+                  type: BuildAndPushDockerRegistry
+                  name: Build and push image
+                  identifier: build_and_push
+                  spec:
+                    # PLACEHOLDER: a Docker registry connector with push rights,
+                    # and the repository to push to.
+                    connectorRef: YOUR_DOCKER_REGISTRY_CONNECTOR
+                    repo: YOUR_REGISTRY/saas-investigator
+                    tags:
+                      # The pipeline's own run number: monotonic, unique, and
+                      # traceable back to the run that produced it. This is the
+                      # tag the /deploy/k8s and /deploy/ecs samples expect you to
+                      # pin. `latest` is deliberately not pushed - it makes a
+                      # rollout unreproducible and a rollback meaningless.
+                      - <+pipeline.sequenceId>
+                    # The multi-stage Dockerfile at the repo root: it builds the
+                    # frontend with npm, copies dist/ into the backend's static
+                    # resources, packages the jar, and assembles a Debian-based
+                    # JRE image with mongodb-org-server installed for the embedded
+                    # fallback. This pipeline consumes that file rather than
+                    # describing the build a second way.
+                    dockerfile: Dockerfile
+                    context: .
+
+  # No coverage threshold is enforced yet, on purpose rather than by omission:
+  # JaCoCo is bound to the `test` phase and produces a report, but
+  # jacoco:check is not wired into the build. Turning one on is the
+  # `enable-coverage-gate` skill - it changes `mvn test` above to `mvn verify`,
+  # which is the line that makes the threshold actually gate this pipeline.

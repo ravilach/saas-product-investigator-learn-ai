@@ -1,0 +1,128 @@
+/*
+ * Account Settings: the read-only details block and the per-provider key rows.
+ */
+
+/*
+ * The details grid. `auto-fit` with a floor rather than a fixed column count, so four short fields sit
+ * on one row on a desktop and stack on a phone without a breakpoint for each width in between.
+ */
+.details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-4);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.fieldValue {
+  margin: 0;
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.providerList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.provider {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.provider:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.providerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+
+.providerName {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+/* The key form. Stacks on a phone, where an input and two buttons in a row would be ~90px each. */
+.keyForm {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.keyInput {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+@media (max-width: 560px) {
+  .keyForm {
+    flex-direction: column;
+  }
+
+  .keyForm > * {
+    width: 100%;
+  }
+}
+
+/* The masked value. Monospace so the last 4 line up between providers. */
+.masked {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: var(--text-sm);
+}
+
+.preferred {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.preferredOption {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-height: var(--tap-target);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.preferredOption:hover {
+  border-color: var(--primary);
+}
+
+.preferredActive {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.preferredLabel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.preferredHint {
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--text-muted);
+}

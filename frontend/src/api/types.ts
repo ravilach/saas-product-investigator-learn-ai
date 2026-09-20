@@ -242,7 +242,7 @@ export interface SystemCredentialStatus extends CredentialStatus {
 }
 
 /** Where the JWT signing secret is coming from. There is deliberately no `last4` - see ADR 0006. */
-export type JwtSecretSource = 'ADMIN_OVERRIDE' | 'ENV_VAR' | 'GENERATED';
+export type JwtSecretSource = 'ADMIN_OVERRIDE' | 'ENV_VAR' | 'AUTO_GENERATED';
 
 /** The JWT signing secret's status. Never includes any part of the secret. */
 export interface JwtSecretStatus {

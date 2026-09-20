@@ -1,0 +1,282 @@
+/*
+ * The product detail page: source config on one side, the Run/Compare/History/Ask tabs on the other.
+ */
+
+.layout {
+  display: grid;
+  /* Sources first in the source order so it comes first on a phone, where the grid collapses to one
+   * column: knowing what is configured is the context for everything in the tabs. */
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+/*
+ * Single column below the desktop breakpoint. Two columns at tablet width leaves the tab panel about
+ * 380px wide, which is narrower than the phone layout gives it - the side-by-side arrangement stops
+ * paying for itself well before the sidebar does.
+ */
+@media (max-width: 1024px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.panelHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.sourceList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.source {
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.source:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.sourceUrl {
+  display: block;
+  margin-top: var(--space-1);
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.sourceMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* ---------- Tabs ---------- */
+
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+  /* Scrolls rather than wrapping: four tabs plus their labels do not fit across a phone, and a second
+   * row of tabs reads as a second, separate navigation. */
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-4);
+  scrollbar-width: none;
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  min-height: var(--tap-target);
+  padding: 0 var(--space-4);
+  border: 0;
+  /* Transparent rather than absent, so the active tab's underline does not shift the row by 2px. */
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tabActive {
+  border-bottom-color: var(--primary);
+  color: var(--primary-hover);
+}
+
+/* ---------- Run / Compare ---------- */
+
+.runControls {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.dateRow {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.dateField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  /* Grows on a phone, where two 140px inputs leave an awkward gap; capped so a wide screen does not
+   * stretch a date input to 600px. */
+  flex: 1 1 160px;
+  max-width: 220px;
+}
+
+.lastRunSummary {
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--primary);
+  border-radius: var(--radius-sm);
+  background: var(--primary-soft);
+  font-size: var(--text-sm);
+}
+
+/* ---------- History ---------- */
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.entry {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.entryHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--tap-target);
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.entryHeader:hover {
+  background: var(--primary-soft);
+}
+
+.entryTitle {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.entryBadges {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.entryBody {
+  padding: 0 var(--space-4) var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.entryActions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.chevron {
+  color: var(--text-muted);
+  transition: transform var(--transition-fast);
+}
+
+.chevronOpen {
+  transform: rotate(90deg);
+}
+
+/* ---------- Ask ---------- */
+
+.askForm {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.askInput {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 480px) {
+  .askForm {
+    flex-direction: column;
+  }
+
+  .askForm > * {
+    width: 100%;
+  }
+}
+
+.transcript {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+}
+
+.question {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--primary-soft);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+/*
+ * The streamed answer. `pre-wrap` so the model's own paragraph breaks survive, and rendered as a text
+ * node - the answer is untrusted text and nothing in this app interprets it as markup.
+ */
+.answer {
+  margin: var(--space-2) 0 0;
+  padding: 0 var(--space-4);
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+  white-space: pre-wrap;
+}
+
+/* The blinking caret, which is the only honest "still generating" signal for a token stream. */
+.caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  background: var(--primary);
+  vertical-align: text-bottom;
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}

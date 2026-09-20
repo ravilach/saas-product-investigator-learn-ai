@@ -1,0 +1,63 @@
+# Non-secret configuration. Everything in here is safe to read from `kubectl get
+# configmap -o yaml`, which is the line that decides what belongs in this file
+# versus secret.yaml: a Secret is base64, not encryption, but it is at least
+# separately RBAC-able and separately audited.
+#
+# Every value below is optional to the application - the defaults in
+# application.properties are the same ones repeated here. They are spelled out
+# anyway because a cluster is where you actually want to know what a running pod
+# is configured with without reading a jar, and an env var you can `kubectl edit`
+# is a knob; a compiled-in default is not.
+#
+#   kubectl apply -f deploy/k8s/configmap.yaml
+#
+# Changing this ConfigMap does NOT restart the pods. Nothing here is watched at
+# runtime - Spring reads env vars once at startup. Follow an edit with:
+#   kubectl rollout restart deployment/saas-investigator
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: saas-investigator-config
+  labels:
+    app.kubernetes.io/name: saas-investigator
+data:
+  # --- Model selection -----------------------------------------------------
+  # Not secret, and the thing most likely to need changing without a rebuild:
+  # model names move faster than this repo does.
+  ANTHROPIC_MODEL: "claude-sonnet-5"
+  OPENAI_MODEL: "gpt-6-astra"
+
+  # --- Concurrency ---------------------------------------------------------
+  # Runs and questions execute on two separate bounded pools. These are per-pod
+  # numbers, so they multiply by replica count - see the replica note in
+  # deployment.yaml before raising either.
+  #
+  # The bound protects other people's resources (a run crawls somebody else's
+  # site and makes a metered model call), not this pod's CPU. Past the queue a
+  # run is rejected with 503 "try again in a few minutes", which is deliberately
+  # a real answer rather than a runId for work starting in half an hour.
+  RUN_CONCURRENCY: "3"
+  RUN_QUEUE_CAPACITY: "12"
+  ASK_CONCURRENCY: "6"
+
+  # --- Prompt budget -------------------------------------------------------
+  # Total source text in one prompt, across every block. Not a model context
+  # limit - a cost limit. Raising it raises the price of every NUCLEAR run.
+  LLM_MAX_PROMPT_CHARS: "600000"
+
+  # --- Session lifetime ----------------------------------------------------
+  JWT_EXPIRATION_HOURS: "12"
+
+  # --- Host-mounted credential fallback ------------------------------------
+  # In a cluster the Anthropic key comes from the Secret, so the host-mount
+  # fallback has nothing to read and would only ever be a confusing third place
+  # for a key to come from. Switched off explicitly rather than left to "that
+  # path happens not to exist here".
+  IGNORE_HOST_CREDENTIALS: "true"
+
+  # --- CORS ----------------------------------------------------------------
+  # Empty on purpose. The image serves the built frontend and the API from one
+  # origin, so no cross-origin request exists to allow. The default value is the
+  # local Vite dev server, which is meaningless in a cluster; leaving it in place
+  # would be a permitted origin nobody intended.
+  CORS_ALLOWED_ORIGINS: ""

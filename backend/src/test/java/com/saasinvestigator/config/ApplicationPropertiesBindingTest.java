@@ -50,6 +50,12 @@ import org.junit.jupiter.api.Test;
  * {@code @ConfigurationProperties} and are proven to bind by the tests that read them. Map-valued properties
  * ({@code logging.level.*}, {@code management.metrics.distribution.*}) appear in the metadata as the prefix alone,
  * so they are matched by prefix - the key after it is user-defined by design.
+ *
+ * <p>That second exemption has a hole, and it is worth knowing where: for a distribution property the map key is a
+ * <em>meter name</em>, so a key naming no meter that exists is well-formed, bindable, and does nothing. This file
+ * cannot check that - it knows about properties, not meters - so
+ * {@code RunMetricsDistributionPropertiesTest} in the {@code run} package covers the other half, next to the meter
+ * names it has to match against.
  */
 class ApplicationPropertiesBindingTest {
 
@@ -64,6 +70,8 @@ class ApplicationPropertiesBindingTest {
             "logging.level",
             "management.metrics.distribution.percentiles-histogram",
             "management.metrics.distribution.percentiles",
+            "management.metrics.distribution.minimum-expected-value",
+            "management.metrics.distribution.maximum-expected-value",
             "management.metrics.distribution.slo",
             "management.metrics.tags");
 

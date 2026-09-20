@@ -356,7 +356,7 @@ Beyond the standard `http.server.requests` histogram, the app emits metrics abou
 | Metric | Type | Tags |
 |---|---|---|
 | `saas_run_total` | Counter | `product`, `status`, `runType`, `analysisDepth` |
-| `saas_run_duration_seconds` | Timer | `product`, `runType`, `analysisDepth` |
+| `saas_run_duration_seconds` | Timer (histogram, 1s–15m) | `product`, `runType`, `analysisDepth` |
 | `saas_source_fetch_errors_total` | Counter | `product`, `sourceType` |
 | `saas_ask_total` | Counter | `product`, `status` |
 
@@ -365,8 +365,16 @@ are runs failing, which source type is flaky, is NUCLEAR depth worth what it cos
 tag rather than a separate metric specifically so a latency regression can be attributed to depth mix rather than
 looking like the app got slower.
 
+`saas_run_duration_seconds` is configured as a **bounded percentile histogram, 1s to 15m**. The bounds are
+load-bearing rather than tuning: Micrometer's default range is sized for HTTP requests (roughly 1ms–30s), so without
+them every real run lands in the top bucket and every quantile reads as "30 seconds or more" regardless of how long
+runs actually take. The other three are counters and have no buckets. None of the four exist in a scrape until the
+first run or Ask — Micrometer registers a meter on first use, which on a dashboard is indistinguishable from
+"everything is fine."
+
 `/actuator/prometheus` is **intentionally unauthenticated** — scrapers don't carry JWTs. Restrict it at the
-network/ingress layer, not in the app. This is called out again in `DEPLOYMENT.md`.
+network/ingress layer, not in the app. This is called out again in [`DEPLOYMENT.md`](DEPLOYMENT.md), which also has
+the per-tag meaning of each metric, example PromQL, and how to scrape it in each topology.
 
 ## Crawling is a safety boundary
 

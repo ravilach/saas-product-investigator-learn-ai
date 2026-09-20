@@ -1,0 +1,130 @@
+{
+  "_comment": [
+    "PLACEHOLDER VALUES - do not create this as-is.",
+    "",
+    "A short Fargate service sample, assuming a cluster, a VPC with subnets, a security group, and an",
+    "ALB target group all already exist. Creating those is a networking decision with an owner, and a",
+    "sample that guessed at them would be a sample you have to undo.",
+    "",
+    "  aws ecs register-task-definition --cli-input-json file://deploy/ecs/task-definition.json",
+    "  aws ecs create-service --cli-input-json file://deploy/ecs/service.json",
+    "",
+    "Subsequent deploys are update-service, not create-service:",
+    "  aws ecs update-service --cluster YOUR_ECS_CLUSTER --service saas-investigator \\",
+    "    --task-definition saas-investigator --force-new-deployment"
+  ],
+
+  "cluster": "YOUR_ECS_CLUSTER",
+  "serviceName": "saas-investigator",
+
+  "_comment_task_definition": [
+    "Family name with no revision, which resolves to the latest ACTIVE revision at create time. Pin a",
+    "revision (saas-investigator:7) if you want the service to hold still while you register new ones."
+  ],
+  "taskDefinition": "saas-investigator",
+
+  "launchType": "FARGATE",
+  "platformVersion": "LATEST",
+
+  "_comment_desired_count": [
+    "One task, and this is a constraint rather than a starting number.",
+    "",
+    "A run's live step-by-step view lives in memory in the task that started the run - nothing about",
+    "it is written to MongoDB. So the request that subscribes to run events has to reach the same task",
+    "that accepted the POST which started it. With two tasks behind an ALB doing round-robin, roughly",
+    "half of those subscriptions hit a task that has never heard of that runId and get a 404, which",
+    "users experience as the live view intermittently not working.",
+    "",
+    "Scaling past one needs stickiness on the ALB target group, which is not set here because it is a",
+    "property of the target group rather than of the service:",
+    "  aws elbv2 modify-target-group-attributes --target-group-arn ... \\",
+    "    --attributes Key=stickiness.enabled,Value=true \\",
+    "                 Key=stickiness.type,Value=lb_cookie \\",
+    "                 Key=stickiness.lb_cookie.duration_seconds,Value=3600",
+    "Everything else in the app is stateless: the JWT is signed rather than stored, and its signing",
+    "secret is resolved from the database so every task agrees on it.",
+    "",
+    "See docs/ARCHITECTURE.md, \"The report is durable; the narration is not.\""
+  ],
+  "desiredCount": 1,
+
+  "_comment_network": [
+    "PLACEHOLDER subnet and security group IDs. awsvpc mode gives the task its own ENI.",
+    "",
+    "assignPublicIp is ENABLED here only because a task in a public subnet with no NAT gateway needs a",
+    "public IP to reach anything outbound at all - and this app is entirely outbound-dependent: it",
+    "pulls its own image, crawls third-party sites, and calls a model API. Private subnets plus a NAT",
+    "gateway is the better shape; set this to DISABLED if that is what you have, and confirm the route",
+    "before you do, because the symptom of getting it wrong is a task that starts, passes its health",
+    "check, and fails every single run with a connection timeout.",
+    "",
+    "The security group needs no inbound rule except from the load balancer's security group on 8080.",
+    "Outbound needs 443 to the model API and to whatever your sources are, plus MongoDB's port."
+  ],
+  "networkConfiguration": {
+    "awsvpcConfiguration": {
+      "subnets": ["subnet-YOUR_SUBNET_A", "subnet-YOUR_SUBNET_B"],
+      "securityGroups": ["sg-YOUR_SECURITY_GROUP"],
+      "assignPublicIp": "ENABLED"
+    }
+  },
+
+  "_comment_load_balancer": [
+    "PLACEHOLDER target group ARN. containerName and containerPort must match the task definition",
+    "exactly (\"app\", 8080) or the service will not register any targets and will say very little",
+    "about why.",
+    "",
+    "Configure the target group itself for two things this JSON cannot express:",
+    "",
+    "1. A health check path of /actuator/health (unauthenticated by design). This is the check that",
+    "   decides whether traffic reaches the task; the container health check in task-definition.json",
+    "   decides whether ECS replaces it. Both, doing different jobs.",
+    "",
+    "2. An idle timeout long enough for Server-Sent Events. Run progress and streamed answers are SSE,",
+    "   and spring.mvc.async.request-timeout is 10 minutes because a NUCLEAR-depth run can take that",
+    "   long. The ALB's default idle timeout is 60 seconds, which cuts the live execution view off",
+    "   mid-run with no error the app can report - it is the connection, not the run, that died. Raise",
+    "   it on the load balancer (not the target group): idle_timeout.timeout_seconds=600."
+  ],
+  "loadBalancers": [
+    {
+      "targetGroupArn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/YOUR_TARGET_GROUP/0123456789abcdef",
+      "containerName": "app",
+      "containerPort": 8080
+    }
+  ],
+
+  "_comment_grace_period": [
+    "180s of load-balancer health checks ignored after a task starts. It has to comfortably exceed JVM",
+    "boot plus Mongo index verification and the admin-seed check, or the ALB marks the task unhealthy",
+    "while it is still starting, ECS replaces it, and the replacement does exactly the same thing - a",
+    "loop that looks like a broken application and is a misconfigured timeout."
+  ],
+  "healthCheckGracePeriodSeconds": 180,
+
+  "_comment_deployment": [
+    "With desiredCount 1, maximumPercent 200 means the new task starts before the old one stops, so",
+    "there is no gap in availability - at the cost of both serving traffic briefly, during which a",
+    "live view opened against one task while the run started on the other gets the 404 described",
+    "above. Set maximumPercent to 100 and minimumHealthyPercent to 0 if you would rather have a few",
+    "seconds of downtime per deploy than that overlap.",
+    "",
+    "Circuit breaker on with rollback: a task that cannot start - a bad image tag, an execution role",
+    "that cannot read the secrets - rolls back to the last working definition instead of retrying",
+    "until someone notices."
+  ],
+  "deploymentConfiguration": {
+    "maximumPercent": 200,
+    "minimumHealthyPercent": 100,
+    "deploymentCircuitBreaker": {
+      "enable": true,
+      "rollback": true
+    }
+  },
+
+  "enableExecuteCommand": false,
+  "propagateTags": "SERVICE",
+  "tags": [
+    { "key": "app", "value": "saas-investigator" }
+  ]
+}

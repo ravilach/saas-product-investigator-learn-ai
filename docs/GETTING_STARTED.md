@@ -17,7 +17,8 @@ Before writing or running anything, confirm the four tools exist:
 ```sh
 java -version     # 25 or newer (the build targets 25; a newer JDK is fine)
 mvn -version
-node -version     # 20 or newer
+node --version    # 20 or newer. Note the two dashes - `node -version` is a Node syntax error,
+                  #                not a "not installed" answer
 docker version    # both Client and Server sections must print
 ```
 
@@ -69,7 +70,7 @@ Six more things are worth confirming here, because they're the foundation everyt
 # 1. Unauthenticated calls are rejected - and rejected in this app's JSON error shape,
 #    not with an HTML error page or a stack trace.
 curl -i localhost:8080/api/users
-# HTTP/1.1 401 ... {"error":"UNAUTHORIZED","message":"Authentication is required ...
+# HTTP/1.1 401 ... {"error":"UNAUTHORIZED","message":"Authentication required. Send a valid ...
 
 # 2. The seeded admin can log in, and the response carries no password hash.
 curl -s -X POST localhost:8080/api/auth/login \
@@ -115,7 +116,7 @@ session you are holding, which is a poor thing to discover in the middle of a se
 
 The startup log should also contain `MongoDB indexes verified.` and a loud multi-line
 `DEFAULT ADMIN CREDENTIAL CREATED` warning on the very first boot against an empty database. Both are intentional —
-see [`SETUP.md`](SETUP.md#the-default-admin-credential).
+see [`SETUP.md`](SETUP.md#-the-default-admin-credential).
 
 ---
 
@@ -191,12 +192,20 @@ broke only once everything else is already built on top of it.
 
 ## Current status of these checkpoints
 
-The repo is being built incrementally, so not all five are reachable yet:
+The repo is being built incrementally, so not all five are reachable yet. A checkpoint doc that was only ever true
+partway through the build isn't worth much, so this table says exactly what was run and when — not what ought to
+work.
 
 | Checkpoint | Status |
 |---|---|
-| 1 — Tooling | ✅ verified |
-| 2 — Backend boots on its own | ✅ verified, including all six checks above, against a real running instance |
-| 3 — Full stack | ✅ verified against a real running pair — login, guards, theme, and the responsive shell, at desktop, tablet and phone widths |
-| 4 — MVP loop | ⏳ the backend half is complete end to end; needs the product and run screens (step 9) to drive it from the browser |
-| 5 — Tests + container | 🟡 `mvn test` green — 593 tests with a JaCoCo report; `npm test` green — 37 tests; the image needs step 11 |
+| 1 — Tooling | ✅ **re-verified 2026-09-20**, on JDK 26, Maven 3.9.16, Node 22, Docker 29 (client and server). The `node --version` fix above came out of that walk — the command previously printed here was a Node syntax error. |
+| 2 — Backend boots on its own | ✅ **re-verified 2026-09-20 end to end**, against a fresh `docker compose up -d mongo` volume, so the empty-database path was exercised for real: `MongoDB indexes verified.`, the `DEFAULT ADMIN CREDENTIAL CREATED` banner, health matching the output above, and all six checks passing — including `totalElements: 3` in check 4 and an `LLM_CREDENTIAL_ADDED` entry whose `details` is exactly `{"provider":"ANTHROPIC"}` with the key tail appearing nowhere in it. |
+| 3 — Full stack | ✅ verified earlier in the build — login, route guards, theme, and the responsive shell at desktop, tablet and phone widths. **Not re-walked since**; it needs a browser, and the screens it would exercise are still step 9. |
+| 4 — MVP loop | ⏳ **not reachable yet.** The backend half is complete and tested end to end, but driving it from the browser needs the product and run screens (step 9). |
+| 5 — Tests + container | 🟡 **test half re-verified 2026-09-20**: `mvn test` green at **758 tests**, 0 failures, 0 errors, 0 skipped, with a JaCoCo report over 170 classes; `npm test -- --run` green at **37 tests** in 6 files. **Container half not reachable** — the image is step 11. |
+
+The first `mvn test` of that walk failed 7 Testcontainers-backed tests with `Could not find a valid Docker
+environment` on a machine where Docker was plainly running — the two env vars in
+[SETUP.md](SETUP.md#if-testcontainers-cant-find-docker) fixed it, and those instructions are now confirmed correct
+for Rancher Desktop. That is the documented failure behaving as designed: those tests fail rather than skip, because
+a silently skipped test reporting as a pass is worse than a red build.

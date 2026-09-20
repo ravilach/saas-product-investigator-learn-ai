@@ -1,0 +1,84 @@
+# A ClusterIP Service in front of the Deployment, plus two commented-out blocks
+# you will need if you scale past one replica or run Prometheus Operator.
+#
+#   kubectl apply -f deploy/k8s/service.yaml
+#
+# Reach it without an ingress, to check the manifests work before wiring DNS:
+#   kubectl port-forward svc/saas-investigator 8080:80
+#   curl localhost:8080/actuator/health     # {"groups":["liveness","readiness"],"status":"UP"}
+apiVersion: v1
+kind: Service
+metadata:
+  name: saas-investigator
+  labels:
+    app.kubernetes.io/name: saas-investigator
+spec:
+  # ClusterIP rather than LoadBalancer on purpose. Exposing this needs decisions
+  # a sample cannot make for you - TLS, a hostname, and who is allowed to reach
+  # it - and the app has no opinion about how traffic arrives. Put an Ingress or
+  # Gateway in front of this Service.
+  #
+  # Whatever that is, it must not buffer responses and must tolerate a long-lived
+  # response: run progress and streamed answers are Server-Sent Events, and
+  # spring.mvc.async.request-timeout is 10 minutes because a NUCLEAR run can take
+  # that long. An ingress with a 60-second read timeout, or response buffering
+  # on, turns the live execution view into a spinner that dies partway through.
+  # nginx-ingress: proxy-read-timeout 600 and proxy-buffering off. See
+  # docs/DEPLOYMENT.md.
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: saas-investigator
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+
+  # --- Required if you ever set replicas > 1 ---------------------------------
+  # A run's live event stream is only readable from the pod running that run, so
+  # a subscription routed elsewhere 404s (see the replica comment in
+  # deployment.yaml). Client-IP affinity is the minimum fix:
+  #
+  # sessionAffinity: ClientIP
+  # sessionAffinityConfig:
+  #   clientIP:
+  #     timeoutSeconds: 3600
+  #
+  # Be aware of what "client IP" means in your topology. If an ingress
+  # controller proxies traffic, the IP this Service sees is the controller's pod
+  # IP, not the browser's - so every user looks like the same client and
+  # affinity pins them all to one replica, which is not load balancing. In that
+  # setup the affinity has to be configured on the ingress instead (a cookie on
+  # nginx-ingress; consistent hashing on others), and this block does nothing
+  # useful on its own.
+---
+# --- Prometheus Operator users only -----------------------------------------
+# Uncomment if you run Prometheus Operator, and delete the prometheus.io/*
+# annotations from deployment.yaml when you do - keeping both means the same
+# series scraped twice under two job labels, which quietly doubles every rate()
+# on a dashboard.
+#
+# The `release` label below is the selector the Operator's Prometheus resource
+# uses to decide which ServiceMonitors it owns. It varies by installation (the
+# kube-prometheus-stack Helm chart's default is its release name), so check with:
+#   kubectl get prometheus -A -o jsonpath='{..serviceMonitorSelector}'
+#
+# apiVersion: monitoring.coreos.com/v1
+# kind: ServiceMonitor
+# metadata:
+#   name: saas-investigator
+#   labels:
+#     app.kubernetes.io/name: saas-investigator
+#     release: YOUR_PROMETHEUS_RELEASE_LABEL
+# spec:
+#   selector:
+#     matchLabels:
+#       app.kubernetes.io/name: saas-investigator
+#   endpoints:
+#     - port: http
+#       path: /actuator/prometheus
+#       interval: 30s
+#       # saas_run_duration_seconds is a histogram over runs measured in minutes,
+#       # so a slower interval than the default 30s loses little; going much
+#       # faster buys nothing, because the metrics that matter here only change
+#       # when somebody clicks Run.

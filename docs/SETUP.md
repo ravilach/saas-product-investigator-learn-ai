@@ -1,7 +1,9 @@
 # Setup
 
 The reference page: every prerequisite, every environment variable, every way to run the app and its tests. If you
-want the guided, verify-as-you-go path instead, use [`GETTING_STARTED.md`](GETTING_STARTED.md).
+want the guided, verify-as-you-go path instead, use [`GETTING_STARTED.md`](GETTING_STARTED.md). For running this
+somewhere other than a laptop — Kubernetes, ECS, what to scrape, what to alert on — see
+[`DEPLOYMENT.md`](DEPLOYMENT.md).
 
 ## Prerequisites
 
@@ -261,7 +263,8 @@ nothing and both are ephemeral together. There's never a mismatch where one outl
 That fully self-contained mode is a real working instance, not a toy — but it is **single-container,
 single-instance**. It cannot be scaled past one replica (each would boot its own disconnected database with its own
 generated key). Set `MONGODB_URI` and `CREDENTIAL_ENCRYPTION_KEY` explicitly for anything else; the
-docker-compose/Kubernetes/ECS samples under [`/deploy`](../deploy/) always do.
+docker-compose/Kubernetes/ECS samples under [`/deploy`](../deploy/) always do, and
+[`DEPLOYMENT.md`](DEPLOYMENT.md) walks through each of them.
 
 ---
 
