@@ -115,6 +115,9 @@ mongod.log*
 !.vscode/tasks.json
 !.vscode/extensions.json
 
+# Claude Code — keep shared config/skills, drop personal local overrides
+.claude/settings.local.json
+
 # Eclipse / STS
 .project
 .classpath
