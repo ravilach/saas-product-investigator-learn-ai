@@ -1,0 +1,214 @@
+# PLACEHOLDER VALUES - this does not run unmodified. It needs everything
+# ci-build-pipeline.yaml needs, plus three Harness entities that must exist before
+# the deploy stage can resolve: a Service, an Environment, and an Infrastructure
+# Definition. See docs/DEPLOYMENT.md for what each one has to contain.
+#
+# The same build stage as ci-build-pipeline.yaml, followed by a rolling deployment
+# of the image it just pushed, using the manifests in /deploy/k8s.
+#
+# The division of labour is deliberate and is the thing to understand before
+# editing this file: the pipeline is the *sequencing*. Where the cluster is, which
+# namespace, which manifests, and which values override them all live in the
+# Harness Service and Environment, configured once in Harness itself and referenced
+# here by identifier. Inlining them would give you two places that describe the
+# same cluster and no way to deploy the same artifact to staging and production.
+pipeline:
+  name: SaaS Product Investigator - Build and Deploy (K8s)
+  identifier: saas_investigator_build_and_deploy_k8s
+  # PLACEHOLDER: the project and org this pipeline lives in.
+  projectIdentifier: YOUR_PROJECT_ID
+  orgIdentifier: YOUR_ORG_ID
+
+  properties:
+    ci:
+      codebase:
+        # PLACEHOLDER: the Harness connector for this repository.
+        connectorRef: YOUR_CODE_REPO_CONNECTOR
+        repoName: saas-product-investigator-learn-ai
+        build: <+input>
+
+  stages:
+    - stage:
+        name: Build and Test
+        identifier: build_and_test
+        type: CI
+        spec:
+          cloneCodebase: true
+
+          # PLACEHOLDER: a Kubernetes cluster connector Harness can run build pods
+          # in. This is the *build* cluster and has nothing to do with the cluster
+          # the deploy stage targets - they are frequently different, and the
+          # deploy target is named in the Infrastructure Definition below, not here.
+          infrastructure:
+            type: KubernetesDirect
+            spec:
+              connectorRef: YOUR_K8S_BUILD_INFRA_CONNECTOR
+              namespace: harness-builds
+
+          sharedPaths:
+            - /root/.m2
+            - /root/.npm
+
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: Backend tests + JaCoCo
+                  identifier: backend_tests
+                  spec:
+                    connectorRef: YOUR_DOCKER_HUB_CONNECTOR
+                    image: maven:3.9-eclipse-temurin-25
+                    shell: Sh
+                    command: |
+                      cd backend
+                      mvn -B test jacoco:report
+                    reports:
+                      type: JUnit
+                      spec:
+                        paths:
+                          - backend/target/surefire-reports/*.xml
+                    # Testcontainers-backed tests need a reachable Docker daemon
+                    # in the build pod - see the longer note in
+                    # ci-build-pipeline.yaml, which applies identically here.
+                    envVariables:
+                      DOCKER_HOST: tcp://localhost:2375
+
+              - step:
+                  type: Run
+                  name: Frontend tests
+                  identifier: frontend_tests
+                  spec:
+                    connectorRef: YOUR_DOCKER_HUB_CONNECTOR
+                    image: node:20
+                    shell: Sh
+                    command: |
+                      cd frontend
+                      npm ci
+                      npm test -- --run
+
+              - step:
+                  type: BuildAndPushDockerRegistry
+                  name: Build and push image
+                  identifier: build_and_push
+                  spec:
+                    # PLACEHOLDER: a Docker registry connector with push rights.
+                    # The Harness Service referenced below must have an artifact
+                    # source pointing at this same repository, or the deploy stage
+                    # will roll out an image this stage did not build.
+                    connectorRef: YOUR_DOCKER_REGISTRY_CONNECTOR
+                    repo: YOUR_REGISTRY/saas-investigator
+                    tags:
+                      - <+pipeline.sequenceId>
+                    dockerfile: Dockerfile
+                    context: .
+
+    - stage:
+        name: Deploy to Kubernetes
+        identifier: deploy_to_kubernetes
+        type: Deployment
+        spec:
+          deploymentType: Kubernetes
+
+          # PLACEHOLDER: a Harness Service whose manifest source is this repo's
+          # /deploy/k8s directory and whose artifact source is the registry
+          # repository the build stage pushes to.
+          #
+          # The manifests themselves stay in /deploy/k8s under version control
+          # rather than being pasted into Harness. Two things follow from that,
+          # and both are why it is worth doing:
+          #
+          #  - The image tag in deployment.yaml is a placeholder. Harness
+          #    substitutes the artifact it resolved, so the file needs no edit per
+          #    deploy - but that only works if the Service's manifest uses
+          #    <+artifact.image> for the image field. Point the Service at these
+          #    files and change that one line in its values override, or the
+          #    rollout deploys the literal YOUR_REGISTRY/saas-investigator:1.
+          #
+          #  - secret.yaml in /deploy/k8s holds placeholder values and must NOT be
+          #    part of the Service's manifest list. Real secrets belong in your
+          #    secret manager, referenced through Harness secrets or applied to the
+          #    cluster out of band. Including that file would have a deploy
+          #    overwrite working credentials with the string CHANGEME.
+          service:
+            serviceRef: YOUR_HARNESS_SERVICE
+            serviceInputs:
+              serviceDefinition:
+                type: Kubernetes
+                spec:
+                  artifacts:
+                    primary:
+                      # Take the tag from the build stage rather than letting
+                      # Harness resolve "the latest tag in the registry". Those are
+                      # only the same thing when nothing else pushes and no two
+                      # pipelines run at once, and when they differ, this stage
+                      # deploys an artifact these tests never ran against.
+                      primaryArtifactRef: <+input>
+                      sources:
+                        - identifier: docker_registry
+                          type: DockerRegistry
+                          spec:
+                            tag: <+pipeline.stages.build_and_test.spec.execution.steps.build_and_push.artifact_BuildAndPushDockerRegistry.stepArtifacts.publishedImageArtifacts[0].tag>
+
+          # PLACEHOLDER: a Harness Environment (dev/staging/prod) and an
+          # Infrastructure Definition inside it naming the target cluster
+          # connector and namespace. This is where the deploy target lives - not
+          # in this file - which is what lets the same pipeline promote one
+          # artifact through several environments.
+          environment:
+            environmentRef: YOUR_HARNESS_ENVIRONMENT
+            deployToAll: false
+            infrastructureDefinitions:
+              - identifier: YOUR_INFRA_DEFINITION
+
+          execution:
+            steps:
+              - step:
+                  type: K8sDryRun
+                  name: Dry Run
+                  identifier: dry_run
+                  timeout: 5m
+                  spec: {}
+                  # Renders the manifests with the resolved artifact and values and
+                  # sends them to the API server with --dry-run=server, catching a
+                  # malformed manifest or a missing ConfigMap before anything is
+                  # applied. It does not catch an image that cannot be pulled or a
+                  # container that crashes on boot - only the rollout below finds
+                  # those, which is why the rollback step exists.
+
+              - step:
+                  type: K8sRollingDeploy
+                  name: Rolling Deployment
+                  identifier: rolling_deployment
+                  timeout: 15m
+                  spec:
+                    skipDryRun: false
+                    # Waits for the rollout to actually become ready rather than
+                    # reporting success on `kubectl apply` returning. That is the
+                    # difference between this step failing and the circuit breaker
+                    # below never firing on a pod stuck in ImagePullBackOff.
+                    pruningEnabled: false
+                  # deployment.yaml sets maxSurge: 0 / maxUnavailable: 1 at
+                  # replicas: 1, so "rolling" here means a few seconds of downtime
+                  # rather than an overlap. That is intentional: a run's live event
+                  # stream is only readable from the pod running it, so two pods
+                  # serving traffic mid-rollout means live views that 404. The
+                  # replica comment in deploy/k8s/deployment.yaml has the detail.
+                  #
+                  # Budget for the timeout above: the pod's startupProbe allows
+                  # ~2 minutes for JVM boot, Mongo index verification, and the
+                  # admin-seed check.
+
+            rollbackSteps:
+              - step:
+                  type: K8sRollingRollback
+                  name: Rollback
+                  identifier: rollback
+                  timeout: 10m
+                  spec: {}
+                  # Reverts the Deployment to the previous revision. Worth being
+                  # clear about what it does not revert: nothing in MongoDB. A
+                  # release that changed stored data is not undone by rolling the
+                  # image back, and neither is a CREDENTIAL_ENCRYPTION_KEY change,
+                  # which makes every value encrypted since unreadable. See the
+                  # rotate-secrets skill.
+        tags: {}

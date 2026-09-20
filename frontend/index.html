@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Explicit, because without it every page load fetches /favicon.ico and logs a 404. -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>SaaS Product Investigator</title>
+    <meta
+      name="description"
+      content="Track how the SaaS products you depend on change over time."
+    />
+    <script>
+      // Applies the persisted theme before React mounts. Without this, a dark-mode user sees a
+      // single light frame on every page load - the one flash of wrong-coloured content that no
+      // amount of CSS transition work can hide, because it happens before any component renders.
+      // Deliberately duplicates a few lines of ThemeProvider's logic; the alternative is the flash.
+      (function () {
+        try {
+          var stored = localStorage.getItem('spi.theme');
+          var theme =
+            stored === 'light' || stored === 'dark'
+              ? stored
+              : window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light';
+          document.documentElement.setAttribute('data-theme', theme);
+        } catch (e) {
+          // A browser with localStorage blocked still gets a usable app, just always in light mode.
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

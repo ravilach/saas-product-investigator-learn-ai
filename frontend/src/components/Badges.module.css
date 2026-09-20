@@ -1,0 +1,94 @@
+/*
+ * Category, depth, and source-type badges.
+ *
+ * All three are pills (see .pill in global.css) and share its shape; what varies is the fill. The
+ * category colours are deliberately drawn from the same two-hue palette as everything else rather
+ * than assigning each of the seven categories its own hue - DESIGN & UX is explicit that Seafoam and
+ * Green are the only accents, so the distinctions here come from soft/solid fills and text colour.
+ */
+
+/* Categories worth noticing use a filled treatment; the routine ones stay quiet. */
+.feature {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.pricing {
+  background: var(--warning);
+  color: #1e1405;
+}
+
+.policy {
+  background: var(--warning-soft);
+  color: var(--warning);
+  box-shadow: inset 0 0 0 1px var(--warning);
+}
+
+.deprecation {
+  background: var(--error);
+  color: var(--on-error);
+}
+
+.bugfix {
+  background: var(--primary-soft);
+  color: var(--primary-hover);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.documentation,
+.other {
+  background: var(--border);
+  color: var(--text-muted);
+}
+
+/* Depth reads as metadata rather than status, so it is outlined rather than filled. */
+.depth {
+  background: transparent;
+  color: var(--text-muted);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+
+/* A source chip carries a type and a name, so it is wider than a status pill and wraps its text. */
+.sourceChip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  max-width: 100%;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  font-size: var(--text-xs);
+}
+
+.sourceChipType {
+  font-weight: 600;
+  color: var(--primary-hover);
+  white-space: nowrap;
+}
+
+.sourceChipName {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+/*
+ * The Data Explorer's masked-field chip.
+ *
+ * Styled to read as inert - no border colour on hover, muted text, a lock glyph - because its whole
+ * job is to say "this is not editable here". A greyed-out text input would still look like something
+ * you could click into.
+ */
+.encrypted {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--border);
+  color: var(--text-muted);
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: var(--text-xs);
+  cursor: not-allowed;
+}

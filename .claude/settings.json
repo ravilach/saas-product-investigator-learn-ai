@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(java -version)",
+      "Bash(mvn -version)",
+      "Bash(mvn -q compile *)",
+      "Bash(mvn -o -q compile *)",
+      "Bash(mvn -q test-compile *)",
+      "Bash(mvn -o -q test-compile *)",
+      "Bash(mvn test *)",
+      "Bash(mvn -o test *)",
+      "Bash(mvn -q test *)",
+      "Bash(mvn -o -q test *)",
+      "Bash(mvn dependency:tree *)",
+      "Bash(npm --version)",
+      "Bash(npm ci *)",
+      "Bash(npm run build *)",
+      "Bash(npm run test *)",
+      "Bash(npm test *)",
+      "Bash(docker --version)",
+      "Bash(docker compose -f deploy/docker-compose.yml config *)",
+      "Bash(docker compose -f deploy/docker-compose.yml ps *)",
+      "Bash(docker compose -f deploy/docker-compose.yml logs *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git branch *)",
+      "Bash(curl -s localhost:8080/actuator/health)",
+      "Bash(curl -s -m 2 localhost:8080/actuator/health)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.local)",
+      "Read(./.env.*.local)",
+      "Read(./**/application-local.properties)",
+      "Read(./**/application-local.y*ml)",
+      "Read(./**/application-secrets.properties)",
+      "Read(./**/application-secrets.y*ml)",
+      "Read(./**/*.pem)",
+      "Read(./**/*.key)",
+      "Read(./**/*.p12)",
+      "Bash(rm -rf /*)",
+      "Bash(git push --force *)"
+    ],
+    "ask": [
+      "Bash(git push *)",
+      "Bash(docker push *)",
+      "Bash(mvn deploy *)",
+      "Bash(mvn release:* *)",
+      "Bash(kubectl apply *)"
+    ],
+    "additionalDirectories": [
+      "/tmp"
+    ]
+  }
+}

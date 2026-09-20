@@ -1,0 +1,316 @@
+/*
+ * Shared styles for the Admin Console's six tabs.
+ *
+ * One module rather than six, because these tabs are variations on two layouts - a stat grid and a
+ * data table - and six files each redeclaring `.table th` would drift apart within a week.
+ */
+
+/* ---------- Overview ---------- */
+
+.statGrid {
+  display: grid;
+  /* Six stats: three across on a desktop, two on a tablet, one on a phone, with no breakpoints of
+   * its own. */
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+}
+
+.stat {
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.statLabel {
+  display: block;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.statValue {
+  display: block;
+  margin-top: var(--space-2);
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  line-height: 1.1;
+}
+
+.statHint {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.healthList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.healthRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-sm);
+}
+
+.healthRow:last-child {
+  border-bottom: 0;
+}
+
+.healthName {
+  font-weight: 600;
+}
+
+/* Component health details, e.g. Mongo's version. Monospace because they are machine values. */
+.healthDetail {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Tables ---------- */
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+  /* Stops a long id or a JSON details blob from squeezing every other column to nothing; the wrapper
+   * scrolls instead. */
+  min-width: 640px;
+}
+
+.table th {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-strong);
+  text-align: left;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+/* The actions cell. Right-aligned and non-wrapping so the buttons stay a block. */
+.actionsCell {
+  white-space: nowrap;
+  text-align: right;
+}
+
+.actionsCell > * + * {
+  margin-left: var(--space-2);
+}
+
+/* A monospace cell for ids and other opaque values. */
+.mono {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Filters ---------- */
+
+.filters {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.filterField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  /* Grows to fill a row on a phone and caps on a desktop, so four filters do not stretch to 300px
+   * each on a wide screen. */
+  flex: 1 1 180px;
+  max-width: 240px;
+}
+
+@media (max-width: 560px) {
+  .filterField {
+    max-width: none;
+  }
+}
+
+/* ---------- Secrets ---------- */
+
+.secretRow {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.secretRow:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.secretHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-2);
+}
+
+.secretName {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.secretForm {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  flex-wrap: wrap;
+  margin-top: var(--space-3);
+}
+
+.secretInput {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+@media (max-width: 560px) {
+  .secretForm {
+    flex-direction: column;
+  }
+
+  .secretForm > * {
+    width: 100%;
+  }
+}
+
+/* The JWT row's warning panel. Error-toned rather than warning-toned: the consequence is a forced
+ * sign-out of everyone, which is closer to destructive than to risky. */
+.danger {
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--error);
+  border-radius: var(--radius-sm);
+  background: var(--error-soft);
+  font-size: var(--text-sm);
+}
+
+/* ---------- Data Explorer ---------- */
+
+.explorerLayout {
+  display: grid;
+  grid-template-columns: minmax(200px, 240px) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .explorerLayout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.collectionList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.collectionButton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--tap-target);
+  padding: 0 var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: var(--text-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.collectionButton:hover {
+  background: var(--primary-soft);
+}
+
+.collectionActive {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  font-weight: 700;
+}
+
+/* The row the detail panel is open for. */
+.rowSelected {
+  background: var(--primary-soft);
+}
+
+.fieldList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.fieldRow {
+  display: grid;
+  grid-template-columns: minmax(120px, 200px) minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+}
+
+@media (max-width: 640px) {
+  .fieldRow {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+  }
+}
+
+.fieldName {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  padding-top: var(--space-2);
+  overflow-wrap: anywhere;
+}
+
+/* A value that cannot be edited here - an id, a nested object, or a masked secret. */
+.readOnlyValue {
+  padding: var(--space-2) 0;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}

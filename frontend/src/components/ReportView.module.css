@@ -1,0 +1,99 @@
+/* A change report's body: summary, the caveat note, the changes grouped by category, and sources. */
+
+.summary {
+  margin: 0;
+  /* Slightly larger than body text: this paragraph is the answer to the question the user asked, and
+   * the list below it is the supporting detail. */
+  font-size: var(--text-base);
+  line-height: var(--leading-body);
+  white-space: pre-wrap;
+}
+
+/*
+ * The mcpHistoryLimited caveat. Warning-toned rather than error-toned: the result is real and usable,
+ * it is just less exact for the MCP half - which is a limitation to disclose, not a failure.
+ */
+.caveat {
+  display: flex;
+  gap: var(--space-3);
+  margin: var(--space-4) 0 0;
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--warning);
+  border-radius: var(--radius-sm);
+  background: var(--warning-soft);
+  font-size: var(--text-sm);
+}
+
+.group {
+  margin-top: var(--space-5);
+}
+
+.groupHeading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.changes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.change {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+}
+
+.changeHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.changeDescription {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+}
+
+/*
+ * The evidence snippet is quoted text from a crawled page or an MCP tool, i.e. text this app did not
+ * author. Rendered as a plain quote block with no HTML interpretation anywhere in the chain.
+ */
+.evidence {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--border-strong);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-style: italic;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}

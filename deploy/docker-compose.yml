@@ -1,0 +1,64 @@
+# App + a separate MongoDB container, wired together via MONGODB_URI.
+#
+# This is deliberately NOT the same thing as the single-container embedded-Mongo
+# fallback described in docs/SETUP.md. There, one container runs both the app and
+# its own mongod, so the database cannot outlive or scale independently of the
+# app. Here they are two containers with a named volume, which is what you want
+# as soon as you care about restarting one without losing the other.
+#
+# Two ways to use this file:
+#
+#   docker compose -f deploy/docker-compose.yml up mongo      # just the database,
+#                                                            # for local `mvn spring-boot:run`
+#   docker compose -f deploy/docker-compose.yml up --build    # the whole stack
+#
+# The first form is the local development loop (see docs/GETTING_STARTED.md
+# checkpoint 2); `up mongo` builds nothing else, so it works before the app image
+# exists.
+
+services:
+  mongo:
+    image: mongo:8
+    container_name: saas-investigator-mongo
+    ports:
+      # Published so a locally-run backend (outside Docker) can reach it too.
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  app:
+    build:
+      # Repo root: the Dockerfile builds the frontend and backend together.
+      context: ..
+      dockerfile: Dockerfile
+    image: saas-investigator:local
+    container_name: saas-investigator-app
+    ports:
+      - "8080:8080"
+    environment:
+      # Set explicitly, which is the whole point of this file: the app must talk
+      # to the mongo service rather than starting an embedded one.
+      MONGODB_URI: mongodb://mongo:27017/saas-investigator
+      # PLACEHOLDER - generate a real one with: head -c 32 /dev/urandom | base64
+      # Anything encrypted under this key is unrecoverable if it changes, so pin
+      # it here (or in a .env file) rather than letting the container generate it.
+      CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:?set CREDENTIAL_ENCRYPTION_KEY, e.g. in deploy/.env}
+      # Optional: add a key here, or add one from the Admin Console after boot.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # JWT_SECRET is intentionally omitted: left unset, the app generates one on
+      # first boot and persists it, so restarts do not sign everyone out.
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  mongo-data:

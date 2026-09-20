@@ -1,0 +1,184 @@
+# PLACEHOLDER VALUES - do not apply this file as-is. At minimum, replace the
+# image below with a registry you can actually pull from.
+#
+# Apply order (the Deployment references the other two, so they go first):
+#   kubectl apply -f deploy/k8s/configmap.yaml
+#   kubectl apply -f deploy/k8s/secret.yaml
+#   kubectl apply -f deploy/k8s/deployment.yaml
+#   kubectl apply -f deploy/k8s/service.yaml
+#
+# What each file does, and what this one assumes about your cluster, is written
+# out in docs/DEPLOYMENT.md.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: saas-investigator
+  labels:
+    app.kubernetes.io/name: saas-investigator
+    app.kubernetes.io/component: app
+spec:
+  # ---------------------------------------------------------------------------
+  # One replica, and this is a real constraint rather than a starting number to
+  # raise when traffic grows.
+  #
+  # A run's narration - the live step-by-step view - lives in memory, in a
+  # RunSession held by RunEventStream. Nothing about it is written to MongoDB.
+  # So `GET .../runs/{runId}/events` can only be answered by the pod that
+  # answered the POST that started the run. With two replicas and ordinary
+  # round-robin routing, roughly half of all run-event subscriptions land on a
+  # pod that has never heard of that runId and get a 404, which surfaces as "the
+  # live view randomly doesn't work."
+  #
+  # Scaling past one therefore needs client-IP session affinity on the Service
+  # (see the commented block in service.yaml) *and* matching affinity on
+  # whatever ingress or load balancer sits in front of it - affinity on the
+  # Service alone does nothing if the ingress controller is the client the
+  # Service sees. Everything else in the app is stateless and scales fine: the
+  # JWT is signed rather than stored, and the signing secret is resolved from the
+  # database so every replica agrees on it.
+  #
+  # See docs/ARCHITECTURE.md, "The report is durable; the narration is not."
+  # ---------------------------------------------------------------------------
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: saas-investigator
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # With replicas: 1 this trades a few seconds of downtime for never running
+      # two pods at once. Worth it while affinity is unconfigured: during a
+      # surge-1 rollout the old and new pod both serve traffic, and a live view
+      # opened against one while the run started on the other is the 404 above.
+      maxSurge: 0
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: saas-investigator
+        app.kubernetes.io/component: app
+      annotations:
+        # Scrape config for a plain Prometheus using the standard kubernetes_sd
+        # pod-annotation relabeling. Prometheus Operator users should ignore
+        # these and use the ServiceMonitor in service.yaml instead - both at
+        # once means the same series ingested twice under different job labels.
+        #
+        # /actuator/prometheus is unauthenticated by design (scrapers do not
+        # carry JWTs), so restrict it with a NetworkPolicy allowing only your
+        # monitoring namespace. It exposes product names as metric tags.
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/actuator/prometheus"
+        prometheus.io/port: "8080"
+    spec:
+      # A NUCLEAR-depth run over several sources takes minutes, so a pod being
+      # deleted will usually have work in flight. This is deliberately not set
+      # to the length of the longest possible run: the app has no way to drain -
+      # nothing resumes a half-finished run and the report is only written at the
+      # end - so waiting ten minutes per rollout would buy a slightly larger
+      # chance of one run finishing, at the cost of every deploy being slow. 60s
+      # lets short runs and in-flight HTTP requests complete. A run killed
+      # mid-flight leaves no report and no partial state; the user re-runs it.
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: app
+          # PLACEHOLDER. Built by the Dockerfile at the repo root - the same
+          # image both /harness pipelines build and push. Pin a real tag: the
+          # CI pipeline tags with <+pipeline.sequenceId>, and `latest` makes a
+          # rollout unreproducible and a rollback meaningless.
+          image: YOUR_REGISTRY/saas-investigator:1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: saas-investigator-config
+            - secretRef:
+                name: saas-investigator-secrets
+          # --- Probes ---------------------------------------------------------
+          # Three probes doing three different jobs. /actuator/health,
+          # /actuator/health/liveness and /actuator/health/readiness are all
+          # exposed and unauthenticated (management.endpoints.web.exposure.include
+          # =health,prometheus in application.properties); the group endpoints are
+          # what Boot's liveness/readiness state maps onto.
+          #
+          # The distinction that matters: readiness includes the MongoDB health
+          # indicator, liveness does not. A database blip should take the pod out
+          # of the Service until Mongo is back - it should NOT restart the JVM,
+          # which fixes nothing and loses every in-flight run. Pointing both
+          # probes at /actuator/health (which aggregates everything, Mongo
+          # included) is the common version of this mistake and turns a
+          # five-minute database outage into a pod in CrashLoopBackOff.
+          startupProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            # Spring Boot plus Mongo index verification and the admin seed check;
+            # cold JVM start on a throttled node is the slow case. Generous
+            # budget here rather than a long initialDelaySeconds on liveness,
+            # so a genuinely wedged boot is still caught within ~2 minutes.
+            periodSeconds: 5
+            failureThreshold: 24
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # --- Resources ------------------------------------------------------
+          # Starting points to measure, not tuned numbers. Two things drive
+          # memory here: the JVM heap, and the fact that a run holds every
+          # source's extracted text in memory at once while assembling the
+          # prompt - up to LLM_MAX_PROMPT_CHARS (600k chars) per concurrent run,
+          # times RUN_CONCURRENCY. Lower the limit and you must lower one of
+          # those two with it.
+          #
+          # CPU is mostly idle: a run spends its time waiting on somebody else's
+          # web server and on a model API, not computing. The request is sized
+          # for boot, which is the CPU-hungry part.
+          resources:
+            requests:
+              cpu: 250m
+              memory: 768Mi
+            limits:
+              # No CPU limit on purpose: throttling a JVM during startup is how
+              # a healthy app fails its own startup probe. Add one if your
+              # cluster requires it, and raise the startupProbe budget with it.
+              memory: 1536Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            # The JVM needs a writable java.io.tmpdir even though report export
+            # builds PDFs and DOCXs in memory: it writes hsperfdata at startup,
+            # and several libraries fall back to scratch files under load.
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      # No volume at /data, deliberately, and readOnlyRootFilesystem above is
+      # only safe because of it. The container's entrypoint touches /data solely
+      # to start an embedded mongod or generate an encryption key when
+      # MONGODB_URI / CREDENTIAL_ENCRYPTION_KEY are unset. Here the Secret sets
+      # both, so neither fallback runs and the pod holds no state at all. Omit
+      # either value and the entrypoint will try to mkdir /data/db on a
+      # read-only filesystem and the pod will fail immediately - which is the
+      # correct outcome: the alternative is each replica quietly running its own
+      # private database.

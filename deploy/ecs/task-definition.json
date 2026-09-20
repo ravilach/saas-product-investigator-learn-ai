@@ -1,0 +1,184 @@
+{
+  "_comment": [
+    "PLACEHOLDER VALUES - do not register this as-is. Every YOUR_* and 123456789012 is a placeholder.",
+    "",
+    "A Fargate task definition for the single image built by the Dockerfile at the repo root.",
+    "JSON has no comments, so the notes live in these _comment keys; the ECS API ignores unknown",
+    "top-level members, but strip them if your tooling validates strictly. What each field assumes",
+    "is written out in docs/DEPLOYMENT.md.",
+    "",
+    "Register, then create a service from it (see service.json):",
+    "  aws ecs register-task-definition --cli-input-json file://deploy/ecs/task-definition.json",
+    "",
+    "Assumed to exist already: an ECR repository holding the image, two IAM roles, a Secrets Manager",
+    "secret per sensitive value, and the CloudWatch log group named below. None of those are created",
+    "by registering a task definition, and three of the four are the usual reason the first task stops",
+    "before the application ever logs a line.",
+    "",
+    "Both IAM roles are required and they are not interchangeable - a single role in both places is the",
+    "most common failure here. executionRoleArn is used by the ECS agent, before the container starts,",
+    "to pull the image and resolve the secrets below; without secretsmanager:GetSecretValue on those",
+    "exact ARNs the task stops during provisioning with a ResourceInitializationError and no",
+    "application logs at all. taskRoleArn is what the running process uses, and this app needs nothing",
+    "from AWS at runtime - it talks to MongoDB and to a model API - so it can be a role with an empty",
+    "policy. Keep them separate anyway: merging them hands the application permission to read its own",
+    "secrets and every other secret the execution role can reach."
+  ],
+
+  "family": "saas-investigator",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+
+  "_comment_size": [
+    "1 vCPU / 2 GB. Valid Fargate pairs are constrained - 1024 CPU allows 2048-8192 memory - so these",
+    "cannot be adjusted independently by arbitrary amounts. Memory is the dimension that matters: a run",
+    "holds every source's extracted text in memory while assembling one prompt (up to",
+    "LLM_MAX_PROMPT_CHARS, 600k characters) and RUN_CONCURRENCY of those can be in flight at once.",
+    "CPU is mostly idle - a run waits on somebody else's web server and on a model API - and is sized",
+    "for JVM startup rather than steady state."
+  ],
+  "cpu": "1024",
+  "memory": "2048",
+
+  "executionRoleArn": "arn:aws:iam::123456789012:role/YOUR_ECS_TASK_EXECUTION_ROLE",
+  "taskRoleArn": "arn:aws:iam::123456789012:role/YOUR_ECS_TASK_ROLE",
+
+  "containerDefinitions": [
+    {
+      "name": "app",
+      "_comment_image": [
+        "PLACEHOLDER. The image both /harness pipelines build and push. Pin a real tag - the CI",
+        "pipeline tags with <+pipeline.sequenceId>. ECS caches nothing across task starts, so",
+        ":latest gives you a deployment you cannot reproduce and a rollback with nothing to roll",
+        "back to."
+      ],
+      "image": "123456789012.dkr.ecr.us-east-1.amazonaws.com/saas-investigator:1",
+      "essential": true,
+
+      "portMappings": [
+        {
+          "name": "http",
+          "containerPort": 8080,
+          "protocol": "tcp",
+          "appProtocol": "http"
+        }
+      ],
+
+      "_comment_environment": [
+        "Non-secret configuration, visible to anyone who can describe the task definition. Anything",
+        "sensitive belongs in `secrets` below, which resolves at start time and is not stored here.",
+        "",
+        "IGNORE_HOST_CREDENTIALS is true because the host-mounted Anthropic key fallback has nothing",
+        "to read on Fargate and would only be a confusing third place for a key to come from.",
+        "CORS_ALLOWED_ORIGINS is deliberately empty: the image serves the frontend and the API from",
+        "one origin, so the shipped default (a localhost Vite dev server) would be a permitted origin",
+        "nobody intended."
+      ],
+      "environment": [
+        { "name": "ANTHROPIC_MODEL", "value": "claude-sonnet-5" },
+        { "name": "OPENAI_MODEL", "value": "gpt-6-astra" },
+        { "name": "RUN_CONCURRENCY", "value": "3" },
+        { "name": "RUN_QUEUE_CAPACITY", "value": "12" },
+        { "name": "ASK_CONCURRENCY", "value": "6" },
+        { "name": "LLM_MAX_PROMPT_CHARS", "value": "600000" },
+        { "name": "JWT_EXPIRATION_HOURS", "value": "12" },
+        { "name": "IGNORE_HOST_CREDENTIALS", "value": "true" },
+        { "name": "CORS_ALLOWED_ORIGINS", "value": "" }
+      ],
+
+      "_comment_secrets": [
+        "PLACEHOLDER ARNs. Each valueFrom is a Secrets Manager secret (an SSM Parameter Store",
+        "SecureString ARN works identically). The -AbCdEf suffix AWS appends to secret ARNs is part",
+        "of the ARN; copy it from the console or `aws secretsmanager list-secrets` rather than",
+        "constructing the ARN by hand. Append :key:: to pull one key out of a JSON secret.",
+        "",
+        "MONGODB_URI and CREDENTIAL_ENCRYPTION_KEY are the two that must be set. Both have",
+        "container-local fallbacks and both fallbacks are actively wrong here: unset, the container",
+        "starts its own mongod under /data and generates its own encryption key - and a Fargate task's",
+        "filesystem is destroyed when the task stops, so every deploy, every scale event, and every",
+        "health-check restart would silently start from an empty database with an unrecoverable key.",
+        "There is no error; it looks like the app forgot everything.",
+        "",
+        "ANTHROPIC_API_KEY is optional - an admin can add one from the Admin Console after boot, and",
+        "that override outranks this value on purpose, so a rotated key does not need a redeploy.",
+        "",
+        "JWT_SECRET is deliberately absent. Unset, the app generates one on first boot, encrypts it",
+        "under CREDENTIAL_ENCRYPTION_KEY, and persists it in the database - so a task replacement does",
+        "not sign everyone out, which is exactly what supplying a rotating value here would do."
+      ],
+      "secrets": [
+        {
+          "name": "MONGODB_URI",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:123456789012:secret:YOUR_MONGODB_URI_SECRET-AbCdEf"
+        },
+        {
+          "name": "CREDENTIAL_ENCRYPTION_KEY",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:123456789012:secret:YOUR_CREDENTIAL_ENCRYPTION_KEY_SECRET-AbCdEf"
+        },
+        {
+          "name": "ANTHROPIC_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:123456789012:secret:YOUR_ANTHROPIC_API_KEY_SECRET-AbCdEf"
+        }
+      ],
+
+      "_comment_healthcheck": [
+        "A container-level health check, which is not the same thing as the load balancer's. This one",
+        "decides whether ECS replaces the task; the target group's decides whether traffic reaches it.",
+        "",
+        "Two caveats worth knowing before relying on this:",
+        "",
+        "1. It runs INSIDE the container, so it needs curl on the image's PATH. The final stage is",
+        "   Debian-based (MongoDB's server binaries need glibc), which makes curl likely but not",
+        "   guaranteed. Check before shipping - `docker run --rm --entrypoint sh IMAGE -c 'command -v",
+        "   curl || command -v wget'` - because a missing binary makes the check fail forever, and ECS",
+        "   responds by killing a perfectly healthy task on a loop.",
+        "",
+        "2. /actuator/health aggregates every health indicator, MongoDB included, so a database blip",
+        "   makes this check fail and ECS replaces the task - which fixes nothing and kills every",
+        "   in-flight run. If that matters more to you than catching a wedged JVM, point this at",
+        "   /actuator/health/liveness (JVM state only, no Mongo) and leave the Mongo-aware check to",
+        "   the target group, where failing only removes the task from rotation. The Kubernetes",
+        "   sample splits them that way because Kubernetes has two separate probes for it; ECS does not.",
+        "",
+        "startPeriod covers JVM boot, Mongo index verification, and the admin-seed check; failures",
+        "during it are not counted."
+      ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 120
+      },
+
+      "_comment_logs": [
+        "awslogs does not create the log group unless you ask it to. Either create",
+        "/ecs/saas-investigator up front, or add \"awslogs-create-group\": \"true\" here and grant the",
+        "execution role logs:CreateLogGroup. Otherwise the task fails to start with a logging driver",
+        "error - and because the failure is in the logging driver, there is nowhere for it to say so",
+        "except the stopped-task reason.",
+        "",
+        "Worth reading on first boot specifically: the entrypoint prints a WARNING line if it had to",
+        "start an embedded MongoDB or generate an encryption key, and the app prints a loud multi-line",
+        "DEFAULT ADMIN CREDENTIAL CREATED warning the first time it seeds admin/admin against an empty",
+        "database. Either warning in a deployed environment means something above is not wired up."
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/saas-investigator",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "app"
+        }
+      },
+
+      "_comment_readonly_root": [
+        "The root filesystem is left writable, unlike the Kubernetes sample. The JVM needs a writable",
+        "java.io.tmpdir (hsperfdata at startup, library scratch files under load), and expressing that",
+        "on Fargate means readonlyRootFilesystem plus a tmpfs mount, which is more moving parts than",
+        "it is worth for a task that holds no state. Nothing is written under /data as long as",
+        "MONGODB_URI and CREDENTIAL_ENCRYPTION_KEY are both set above."
+      ]
+    }
+  ]
+}

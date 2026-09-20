@@ -1,0 +1,60 @@
+/* The shared dialog. Used by Reset password, the JWT rotation confirmation, and the delete confirms. */
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: var(--overlay);
+  animation: fade var(--transition-base);
+}
+
+.dialog {
+  width: 100%;
+  max-width: 460px;
+  /* Capped against the viewport, not a fixed height: a dialog taller than a phone in landscape would
+   * otherwise put its own action buttons off-screen. */
+  max-height: calc(100vh - 2 * var(--space-4));
+  overflow-y: auto;
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  box-shadow: var(--shadow-float);
+}
+
+.title {
+  margin-bottom: var(--space-3);
+}
+
+.body {
+  font-size: var(--text-sm);
+  color: var(--text);
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+/* Stacked and full-width on a phone, where two buttons side by side end up under the 44px target. */
+@media (max-width: 480px) {
+  .footer {
+    flex-direction: column-reverse;
+  }
+
+  .footer > * {
+    width: 100%;
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}

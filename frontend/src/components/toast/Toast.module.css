@@ -1,0 +1,108 @@
+/* Toasts float above everything, so they get --shadow-float rather than a card's flat border. */
+
+.viewport {
+  position: fixed;
+  z-index: 100;
+  bottom: var(--space-4);
+  right: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: min(380px, calc(100vw - var(--space-4) * 2));
+  /* The container spans the corner but must not swallow clicks on the content underneath it; each
+   * toast re-enables pointer events for itself. */
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  font-size: var(--text-sm);
+  animation: slide-in 180ms ease;
+}
+
+/* Tone is carried by the left edge only. A fully tinted background would compete with the status
+ * pills, which are the app's louder colour signal by design. */
+.success {
+  border-left-color: var(--accent);
+}
+
+.error {
+  border-left-color: var(--error);
+}
+
+.warning {
+  border-left-color: var(--warning);
+}
+
+.info {
+  border-left-color: var(--primary);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.message {
+  color: var(--text);
+  /* Backend messages can name a long URL; break it rather than letting it widen the toast. */
+  overflow-wrap: anywhere;
+}
+
+.dismiss {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.dismiss:hover {
+  background: var(--border);
+  color: var(--text);
+}
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* On a phone the toasts span the width; a 380px card pinned to one corner reads as cut off. */
+@media (max-width: 640px) {
+  .viewport {
+    left: var(--space-3);
+    right: var(--space-3);
+    bottom: var(--space-3);
+    width: auto;
+  }
+}

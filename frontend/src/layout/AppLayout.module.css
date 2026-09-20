@@ -1,0 +1,348 @@
+/*
+ * The shell's grid, and both presentations of the sidebar.
+ *
+ * The desktop layout is a two-column grid whose first track is the sidebar width; collapsing the rail
+ * changes that track rather than repositioning anything, so the content reflows instead of sliding
+ * under a fixed panel. In compact mode the sidebar leaves the grid entirely (position: fixed) and the
+ * content takes the full width - which is the difference between a drawer and a squeezed column.
+ */
+
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg);
+}
+
+.shellCollapsed {
+  grid-template-columns: var(--sidebar-width-collapsed) minmax(0, 1fr);
+}
+
+/* ---------- Sidebar ---------- */
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+}
+
+.sidebarRail {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
+}
+
+.sidebarCollapsed {
+  align-items: center;
+  padding-left: var(--space-2);
+  padding-right: var(--space-2);
+}
+
+/* The drawer: off-canvas, above everything, slid in on open. transform rather than `left` so the
+ * animation is composited rather than triggering layout on every frame. */
+.sidebarDrawer {
+  position: fixed;
+  z-index: 60;
+  inset: 0 auto 0 0;
+  width: min(var(--sidebar-width), 84vw);
+  transform: translateX(-100%);
+  transition: transform var(--transition-base);
+  box-shadow: var(--shadow-float);
+}
+
+.sidebarDrawerOpen {
+  transform: translateX(0);
+}
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  background: var(--overlay);
+  animation: fade-in var(--transition-base);
+}
+
+.sidebarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: var(--topbar-height);
+  padding-left: var(--space-2);
+}
+
+.sidebarCollapsed .sidebarHeader {
+  flex-direction: column;
+  padding-left: 0;
+}
+
+/* The product lockup: display face, and the only branded element in the chrome. */
+.lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.lockupMark {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: var(--primary);
+  color: var(--on-primary);
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.lockupText {
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.navList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1;
+  width: 100%;
+}
+
+.sidebarFooter {
+  width: 100%;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+.navLink {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--tap-target);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  text-decoration: none;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.navLink:hover {
+  background: var(--primary-soft);
+  color: var(--text);
+  text-decoration: none;
+}
+
+/* The active row gets the tint plus a left marker, not a solid fill - a solid fill here would
+ * compete with the status pills for the loudest element on screen. */
+.navLinkActive {
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+.navIcon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 18px;
+}
+
+.sidebarCollapsed .navLink {
+  justify-content: center;
+  padding: 0;
+}
+
+.navLabel {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- Top bar ---------- */
+
+.main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0; /* lets a wide table shrink its container instead of stretching the grid column */
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--topbar-height);
+  padding: 0 var(--space-4);
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.context {
+  flex: 1;
+  min-width: 0;
+}
+
+.contextTitle {
+  display: block;
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topbarActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* ---------- Account menu ---------- */
+
+.accountMenu {
+  position: relative;
+}
+
+.avatarButton {
+  display: grid;
+  place-items: center;
+  width: var(--tap-target);
+  height: var(--tap-target);
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  cursor: pointer;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.avatarButton:hover .avatar {
+  background: var(--primary-hover);
+}
+
+/* Floats above the page, so --shadow-float rather than a card's border. */
+.menuPanel {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  z-index: 50;
+  min-width: 240px;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+}
+
+.menuHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-2);
+}
+
+.menuName {
+  font-size: var(--text-sm);
+}
+
+.menuMeta {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: var(--tap-target);
+  padding: 0 var(--space-3);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--text-sm);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.menuItem:hover {
+  background: var(--primary-soft);
+  color: var(--text);
+  text-decoration: none;
+}
+
+/* ---------- Content ---------- */
+
+.content {
+  flex: 1;
+  width: 100%;
+  max-width: var(--content-max);
+  padding: var(--space-5);
+  /* Centres the column in a very wide window without letting text lines run to 2000px. */
+  margin: 0 auto;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Below the desktop breakpoint the sidebar leaves the grid, so the shell is a single column. */
+@media (max-width: 1024px) {
+  .shell,
+  .shellCollapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .content {
+    padding: var(--space-4) var(--space-3);
+  }
+
+  .topbar {
+    padding: 0 var(--space-2);
+  }
+}

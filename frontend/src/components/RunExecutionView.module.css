@@ -1,0 +1,123 @@
+/*
+ * The live execution view: a vertical list of steps, each with a status pill and a real progress line.
+ *
+ * The visual pattern is the one DESIGN & UX points at - a step list rather than a spinner - built from
+ * this app's own palette.
+ */
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  display: grid;
+  /* Rail | content | pill. The rail column is fixed so every step's marker lines up into a single
+   * vertical track regardless of how long the labels or detail lines are. */
+  grid-template-columns: 24px 1fr auto;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.step:last-child {
+  border-bottom: 0;
+}
+
+.rail {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+
+/* The connector between markers, drawn on every step but the last. */
+.step:not(:last-child) .rail::after {
+  content: '';
+  position: absolute;
+  top: 18px;
+  bottom: calc(-1 * var(--space-3) - 6px);
+  width: 2px;
+  background: var(--border);
+}
+
+.marker {
+  width: 12px;
+  height: 12px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  /* Above the connector, so the line appears to run behind the markers rather than through them. */
+  position: relative;
+  z-index: 1;
+}
+
+.markerRunning {
+  background: var(--primary);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.markerSuccess {
+  background: var(--accent);
+}
+
+.markerFailed {
+  background: var(--error);
+}
+
+.body {
+  min-width: 0;
+}
+
+.label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.labelPending {
+  color: var(--text-muted);
+}
+
+/*
+ * The real `detail` string from the SSE event. Monospace and wrapping-anywhere because these are
+ * mostly URLs and tool names - "Crawling https://.../changelog (page 3 of ~20)" - and a URL that
+ * overflows its container is what makes a page scroll sideways on a phone.
+ */
+.detail {
+  margin: var(--space-1) 0 0;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+}
+
+.elapsed {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.totalRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+}
