@@ -171,6 +171,15 @@ pre {
   font-size: var(--text-xs);
 }
 
+/* On a touch screen the 32px variant stops being a legitimate choice: it is a real, tappable control
+   and 32px is below the minimum anyone can hit reliably. It keeps the smaller text and padding, so it
+   still reads as secondary next to a full-size button - it just stays hittable. */
+@media (max-width: 640px) {
+  .btn-sm {
+    min-height: var(--tap-target);
+  }
+}
+
 /* Icon-only controls still have to clear the 44px touch target, hence the explicit width. */
 .btn-icon {
   width: var(--tap-target);
