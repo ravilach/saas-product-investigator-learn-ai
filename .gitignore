@@ -1,4 +1,23 @@
+# ---------------------------------------------------------------
+# macOS
+# ---------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.AppleDouble
+.LSOverride
+.Spotlight-V100
+.Trashes
+Icon?
+*.icloud
+
+# ---------------------------------------------------------------
+# Java / Spring Boot (Maven)
+# ---------------------------------------------------------------
 target/
+# https://maven.apache.org/tools/wrapper/#Usage_with_or_without_Binary_JAR
+.mvn/wrapper/maven-wrapper.jar
+.mvn/timing.properties
 pom.xml.tag
 pom.xml.releaseBackup
 pom.xml.versionsBackup
@@ -6,12 +25,117 @@ pom.xml.next
 release.properties
 dependency-reduced-pom.xml
 buildNumber.properties
-.mvn/timing.properties
-# https://maven.apache.org/tools/wrapper/#Usage_with_or_without_Binary_JAR
-.mvn/wrapper/maven-wrapper.jar
 
-# Eclipse m2e generated files
-# Eclipse Core
+*.class
+*.jar
+*.war
+*.ear
+!**/src/**/*.jar
+hs_err_pid*
+replay_pid*
+
+# Spring Boot local/dev overrides — may hold real credentials
+application-local.properties
+application-local.yml
+application-local.yaml
+application-secrets.properties
+application-secrets.yml
+
+# ---------------------------------------------------------------
+# Node / React
+# ---------------------------------------------------------------
+node_modules/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/versions
+
+# Build output (CRA, Vite, Next, etc.)
+build/
+dist/
+.next/
+out/
+.vite/
+.parcel-cache/
+.turbo/
+*.tsbuildinfo
+
+# Test / lint caches
+coverage/
+.nyc_output/
+.eslintcache
+.stylelintcache
+
+# npm/yarn/pnpm logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ---------------------------------------------------------------
+# Environment / secrets
+# ---------------------------------------------------------------
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+*.p12
+*.jks
+!src/test/resources/**/*.jks
+
+# ---------------------------------------------------------------
+# MongoDB
+# ---------------------------------------------------------------
+data/db/
+mongo-data/
+*.bson
+dump/
+mongod.log*
+
+# ---------------------------------------------------------------
+# IDEs / editors
+# ---------------------------------------------------------------
+# IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# VS Code — keep shared config, drop personal bits
+.vscode/*
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/extensions.json
+
+# Eclipse / STS
 .project
-# JDT-specific (Eclipse Java Development Tools)
 .classpath
+.settings/
+.apt_generated/
+.factorypath
+.springBeans
+.sts4-cache/
+
+# NetBeans
+/nbproject/private/
+/nbbuild/
+/nbdist/
+/.nb-gradle/
+
+# ---------------------------------------------------------------
+# Logs / temp
+# ---------------------------------------------------------------
+*.log
+logs/
+*.tmp
+*.swp
+*.swo
+*~
