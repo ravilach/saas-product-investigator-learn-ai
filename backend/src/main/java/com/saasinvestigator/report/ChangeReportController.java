@@ -2,6 +2,7 @@ package com.saasinvestigator.report;
 
 import com.saasinvestigator.common.PageResponse;
 import com.saasinvestigator.common.Paging;
+import com.saasinvestigator.error.ApiErrorResponse;
 import com.saasinvestigator.error.NotFoundException;
 import com.saasinvestigator.export.ExportFormat;
 import com.saasinvestigator.export.ReportExport;
@@ -9,9 +10,13 @@ import com.saasinvestigator.export.ReportExportService;
 import com.saasinvestigator.product.SaasProduct;
 import com.saasinvestigator.product.SaasProductService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -19,6 +24,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -107,7 +113,13 @@ public class ChangeReportController {
      *     product - the same response either way, because distinguishing them would confirm that a report id exists
      */
     @GetMapping("/{reportId}/export")
+    // Redundant to Spring - the ResponseEntity below already sets 200 - but not to springdoc: see
+    // OpenApiConfig#commonErrorResponses.
+    @ResponseStatus(HttpStatus.OK)
     @Operation(summary = "Download a change report as PDF or DOCX")
+    @ApiResponse(responseCode = "503", description = "The document could not be generated. Safe to retry.",
+            content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = ApiErrorResponse.class)))
     public ResponseEntity<byte[]> export(
             @PathVariable String productId,
             @PathVariable String reportId,

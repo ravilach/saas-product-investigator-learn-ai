@@ -2,6 +2,8 @@ package com.saasinvestigator.audit;
 
 import com.saasinvestigator.common.PageResponse;
 import com.saasinvestigator.error.BadRequestException;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.Instant;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -22,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/audit-logs")
 @PreAuthorize("hasRole('ADMIN')")
+@Tag(name = "Admin - Audit Log", description = "The read-only audit trail")
 public class AuditLogController {
 
     /** Zero-based page number used when the caller does not ask for one. */
@@ -68,6 +71,9 @@ public class AuditLogController {
      * @throws BadRequestException if the requested range is inverted, or paging arguments are nonsensical
      */
     @GetMapping
+    @Operation(summary = "Search the audit trail, newest first",
+            description = "Every filter is optional and they combine with AND. actorUsername is an exact match, not a "
+                    + "substring search. Ordering is fixed: an audit trail in any other order is not useful.")
     public PageResponse<AuditLogResponse> search(
             @RequestParam(required = false) String actorUsername,
             @RequestParam(required = false) AuditAction action,

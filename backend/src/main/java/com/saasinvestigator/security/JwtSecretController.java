@@ -2,6 +2,7 @@ package com.saasinvestigator.security;
 
 import com.saasinvestigator.audit.AuditAction;
 import com.saasinvestigator.audit.AuditService;
+import com.saasinvestigator.config.OpenApiConfig;
 import com.saasinvestigator.systemconfig.SystemConfigDocument;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -36,7 +37,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/admin/jwt-secret")
 @PreAuthorize("hasRole('ADMIN')")
-@Tag(name = "Admin: secrets", description = "The JWT signing secret override")
+@Tag(name = OpenApiConfig.ADMIN_SECRETS_TAG, description = OpenApiConfig.ADMIN_SECRETS_TAG_DESCRIPTION)
 public class JwtSecretController {
 
     private final JwtSecretResolver secretResolver;

@@ -1,7 +1,11 @@
 package com.saasinvestigator.run;
 
+import com.saasinvestigator.error.ApiErrorResponse;
 import com.saasinvestigator.error.NotFoundException;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.io.IOException;
@@ -99,6 +103,11 @@ public class RunController {
             description = "Fetches every configured source, compares against the previous snapshots, and stores a "
                     + "change report. Returns immediately with a runId to subscribe to; the run itself continues in "
                     + "the background. Available to both roles.")
+    @ApiResponse(responseCode = "503",
+            description = "This server is already running as many analyses at once as it is configured to allow. "
+                    + "A provider failure, by contrast, arrives as an error event on the stream, not as this status.",
+            content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = ApiErrorResponse.class)))
     public RunStartedResponse run(@PathVariable String id,
                                   @RequestBody(required = false) RunRequest request) {
         String runId = orchestrator.startRun(id, request == null ? null : request.analysisDepth());
@@ -124,6 +133,10 @@ public class RunController {
             description = "Builds a report describing what changed between two past dates, using only snapshots "
                     + "already stored. Never fetches or crawls anything new. MCP sources are summarised from what "
                     + "earlier runs recorded, which the report flags as mcpHistoryLimited. Available to both roles.")
+    @ApiResponse(responseCode = "503",
+            description = "This server is already running as many comparisons at once as it is configured to allow.",
+            content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = ApiErrorResponse.class)))
     public RunStartedResponse compare(@PathVariable String id,
                                       @Valid @RequestBody CompareRequest request) {
         String runId = orchestrator.startCompare(
@@ -181,10 +194,17 @@ public class RunController {
      * @throws NotFoundException if the product does not exist
      */
     @PostMapping(path = "/ask", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    // Redundant to Spring - 200 is already the default - but not to springdoc: see OpenApiConfig#commonErrorResponses.
+    @ResponseStatus(HttpStatus.OK)
     @Operation(summary = "Ask a question about this product",
             description = "Answers from the latest stored snapshots and the most recent report, streaming the answer "
                     + "as server-sent events: chunk events, then one done event carrying the complete answer. "
                     + "Fetches nothing, and stores nothing. Available to both roles.")
+    @ApiResponse(responseCode = "503",
+            description = "This server is already handling as many questions at once as it is configured to allow. "
+                    + "Returned before the stream opens; once it is open, failures arrive as an error event instead.",
+            content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = ApiErrorResponse.class)))
     public SseEmitter ask(@PathVariable String id, @Valid @RequestBody AskRequest request) {
         return askService.ask(id, request.question());
     }

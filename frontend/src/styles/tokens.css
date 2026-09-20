@@ -1,0 +1,127 @@
+/*
+ * Design tokens.
+ *
+ * Every colour, size, and radius the app uses is declared here as a CSS custom property, and
+ * nothing outside this file hardcodes a hex value. That is what makes the theme switch a single
+ * attribute change on <html> rather than a conditional in every component: the properties below are
+ * redeclared under [data-theme='dark'], the cascade recomputes, and no JavaScript is involved in the
+ * repaint at all.
+ *
+ * The colour values are fixed by the build prompt's DESIGN & UX section. The scales below them
+ * (type, spacing, radii, elevation) are this file's own, chosen once so hierarchy stays consistent.
+ */
+
+:root {
+  /* ---- Colour: light. White dominates; seafoam and green are the only accents. ---- */
+  --bg: #ffffff; /* White - dominant base */
+  --surface: #f4fbfa; /* faint seafoam tint, lifts cards off the white bg */
+  --primary: #2f9e8f; /* Seafoam */
+  --primary-hover: #1f7a6d; /* Deep Teal */
+  --accent: #4caf7d; /* Green - positive change / success */
+  --text: #12241f; /* Ink */
+  --text-muted: #7c948f; /* Ash */
+  --warning: #c98a2f;
+  --error: #c6524a;
+
+  /*
+   * Derived colours. Kept as separate tokens rather than rgba() literals at each use site so the
+   * dark theme can give them different alphas - a border that reads as "subtle" on white needs more
+   * contrast, not less, on navy.
+   */
+  --border: rgba(18, 36, 31, 0.12);
+  --border-strong: rgba(18, 36, 31, 0.22);
+  --primary-soft: rgba(47, 158, 143, 0.12);
+  --accent-soft: rgba(76, 175, 125, 0.14);
+  --warning-soft: rgba(201, 138, 47, 0.14);
+  --error-soft: rgba(198, 82, 74, 0.12);
+  --overlay: rgba(18, 36, 31, 0.45);
+  --skeleton: rgba(18, 36, 31, 0.07);
+  --skeleton-sheen: rgba(18, 36, 31, 0.03);
+
+  /* Text that sits on a solid --primary / --accent / --error fill. */
+  --on-primary: #ffffff;
+  --on-accent: #0b2018;
+  --on-error: #ffffff;
+
+  /* ---- Type. Two families, distinct roles (see DESIGN & UX). ---- */
+  --font-ui: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Space Grotesk Variable', 'Space Grotesk', var(--font-ui);
+
+  --text-xs: 0.75rem; /* 12px - pill labels, table meta */
+  --text-sm: 0.875rem; /* 14px - secondary body, form labels */
+  --text-base: 1rem; /* 16px - body */
+  --text-lg: 1.25rem; /* 20px - card titles */
+  --text-xl: 1.5rem; /* 24px - section headings */
+  --text-2xl: 2rem; /* 32px - page titles (display face) */
+
+  --leading-tight: 1.25;
+  --leading-body: 1.55; /* inside the 1.4-1.6 the prompt asks for */
+
+  /* ---- Space. A 4px base; every gap and pad is a multiple. ---- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+
+  /* ---- Radii and elevation. Differentiated on purpose: see the note below. ---- */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+
+  /*
+   * DESIGN & UX explicitly asks that not every block get the same rounded-corner-plus-shadow
+   * treatment. So: content cards use --shadow-card, which is barely there, and lean on --border for
+   * their edge. Things that genuinely float above the page - drawers, dialogs, toasts, dropdowns -
+   * use --shadow-float. Status pills get neither; they read as hierarchy through a solid fill.
+   */
+  --shadow-card: 0 1px 2px rgba(18, 36, 31, 0.04);
+  --shadow-float: 0 12px 32px rgba(18, 36, 31, 0.18);
+
+  /* ---- Layout constants shared between the shell and its media queries. ---- */
+  --sidebar-width: 248px;
+  --sidebar-width-collapsed: 64px;
+  --topbar-height: 60px;
+  --tap-target: 44px; /* the minimum from REACTIVITY & RESPONSIVE DESIGN */
+  --content-max: 1240px;
+
+  --transition-fast: 120ms ease;
+  --transition-base: 200ms ease;
+}
+
+/*
+ * Dark: navy-based, never pure black, and never pure white text (see DESIGN & UX). The navy keeps
+ * the surface distinguishable from the background at low brightness, which #000 cannot do.
+ */
+[data-theme='dark'] {
+  --bg: #0a1622; /* Navy Deep */
+  --surface: #102232; /* Navy Surface */
+  --primary: #4fd1c5; /* Seafoam Bright */
+  --primary-hover: #7be0d6;
+  --accent: #6ee7a8; /* Fresh Green Bright */
+  --text: #e7f3f1; /* Fog - never pure white */
+  --text-muted: #4c6672; /* Steel */
+  --warning: #e0a94d;
+  --error: #e0645a;
+
+  --border: rgba(231, 243, 241, 0.12);
+  --border-strong: rgba(231, 243, 241, 0.24);
+  --primary-soft: rgba(79, 209, 197, 0.14);
+  --accent-soft: rgba(110, 231, 168, 0.14);
+  --warning-soft: rgba(224, 169, 77, 0.16);
+  --error-soft: rgba(224, 100, 90, 0.16);
+  --overlay: rgba(5, 11, 18, 0.66);
+  --skeleton: rgba(231, 243, 241, 0.08);
+  --skeleton-sheen: rgba(231, 243, 241, 0.03);
+
+  /* The bright seafoam and green need dark text on top to stay readable; white on them does not. */
+  --on-primary: #06181c;
+  --on-accent: #06211a;
+  --on-error: #1a0b0a;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-float: 0 12px 32px rgba(0, 0, 0, 0.5);
+}

@@ -2,6 +2,11 @@ package com.saasinvestigator.product;
 
 import com.saasinvestigator.common.PageResponse;
 import com.saasinvestigator.common.Paging;
+import com.saasinvestigator.error.ApiErrorResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -54,6 +59,12 @@ public class SaasProductController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Create a tracked product",
+            description = "Registers a product and the sources to investigate. MCP auth tokens are encrypted at "
+                    + "rest and only ever read back as their last four characters.")
+    @ApiResponse(responseCode = "409", description = "A product with this name already exists.",
+            content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = ApiErrorResponse.class)))
     public SaasProductResponse create(@Valid @RequestBody SaasProductRequest request) {
         return service.create(request);
     }
@@ -67,6 +78,8 @@ public class SaasProductController {
      */
     @GetMapping
     @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "List tracked products, newest first",
+            description = "Paginated. Each entry carries the timestamp of its most recent run.")
     public PageResponse<SaasProductResponse> list(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "" + Paging.DEFAULT_PAGE_SIZE) int size) {
@@ -84,6 +97,9 @@ public class SaasProductController {
      */
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Get one product with its sources",
+            description = "Readable by both roles: MCP auth tokens are masked to their last four characters, so no "
+                    + "form of this response carries a credential.")
     public SaasProductResponse get(@PathVariable String id) {
         return service.get(id);
     }
@@ -96,7 +112,15 @@ public class SaasProductController {
      * @return the updated product
      */
     @PutMapping("/{id}")
+    // Redundant to Spring - 200 is already the default - but not to springdoc: see OpenApiConfig#commonErrorResponses.
+    @ResponseStatus(HttpStatus.OK)
     @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Replace a product's name, description and sources",
+            description = "A full replacement, not a patch: sources omitted from the request are removed. Resubmit a "
+                    + "source without an authToken to keep the stored token, which is never sent to the client.")
+    @ApiResponse(responseCode = "409", description = "Another product already uses this name.",
+            content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = ApiErrorResponse.class)))
     public SaasProductResponse update(@PathVariable String id, @Valid @RequestBody SaasProductRequest request) {
         return service.update(id, request);
     }
@@ -109,6 +133,8 @@ public class SaasProductController {
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Delete a product and everything derived from it",
+            description = "Cascades to the product's snapshots, change reports and run records. Not reversible.")
     public void delete(@PathVariable String id) {
         service.delete(id);
     }

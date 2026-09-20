@@ -3,9 +3,13 @@ package com.saasinvestigator.user;
 import com.saasinvestigator.audit.AuditAction;
 import com.saasinvestigator.audit.AuditService;
 import com.saasinvestigator.credential.UserCredentialService;
+import com.saasinvestigator.error.ApiErrorResponse;
 import com.saasinvestigator.error.BadRequestException;
 import com.saasinvestigator.security.CurrentUser;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -74,6 +78,9 @@ public class UserController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Create user", description = "Creates a user with an admin-assigned role.")
+    @ApiResponse(responseCode = "409", description = "That username or email address is already registered.",
+            content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = ApiErrorResponse.class)))
     public UserResponse create(@Valid @RequestBody CreateUserRequest request) {
         User created = userService.create(request.firstName(), request.lastName(), request.username(),
                 request.email(), request.password(), request.role());

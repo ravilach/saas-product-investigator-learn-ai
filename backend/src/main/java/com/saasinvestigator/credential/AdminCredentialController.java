@@ -2,6 +2,7 @@ package com.saasinvestigator.credential;
 
 import com.saasinvestigator.audit.AuditAction;
 import com.saasinvestigator.audit.AuditService;
+import com.saasinvestigator.config.OpenApiConfig;
 import com.saasinvestigator.llm.LlmProviderType;
 import com.saasinvestigator.security.CurrentUser;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,7 +35,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/admin/system-credentials")
 @PreAuthorize("hasRole('ADMIN')")
-@Tag(name = "Admin: secrets", description = "System-wide LLM provider credentials")
+@Tag(name = OpenApiConfig.ADMIN_SECRETS_TAG, description = OpenApiConfig.ADMIN_SECRETS_TAG_DESCRIPTION)
 public class AdminCredentialController {
 
     private final SystemCredentialService systemCredentials;
