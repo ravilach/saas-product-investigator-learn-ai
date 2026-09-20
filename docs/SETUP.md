@@ -223,6 +223,16 @@ Frontend, in a second terminal:
 cd frontend && npm install && npm run dev
 ```
 
+The dev server proxies `/api`, `/actuator`, `/swagger-ui` and `/v3/api-docs` to `localhost:8080`, so development
+runs same-origin exactly like the packaged image does — no CORS preflights in the dev loop that would not exist in
+production, and no second base URL to keep in sync. `CORS_ALLOWED_ORIGINS` still defaults to the Vite origin so
+that pointing a browser straight at port 8080 also works.
+
+If you do need the frontend to talk to a backend somewhere else, set `VITE_API_BASE_URL` (e.g.
+`VITE_API_BASE_URL=https://investigator.internal npm run dev`); leaving it unset means "same origin", which is what
+the container relies on. Note that `VITE_`-prefixed variables are compiled into the bundle and readable by anyone
+who loads the page, so only ever put a URL there — never a key.
+
 ### Without Docker at all
 
 Install and start MongoDB yourself, point `MONGODB_URI` at it, and the commands above are otherwise identical.
@@ -263,8 +273,12 @@ open target/site/jacoco/index.html    # coverage report, written by the `test` p
 ```
 
 ```sh
-cd frontend && npm test -- --run
+cd frontend && npm test -- --run      # or `npm run test:run`; bare `npm test` stays in watch mode
 ```
+
+The frontend tests run in jsdom against the real `fetch` client — they stub `globalThis.fetch` rather than mocking
+the API module, so a mistake in request shape, headers, or error translation fails a test instead of being mocked
+away.
 
 JaCoCo is bound to the `test` phase and produces `target/site/jacoco/index.html`. There is deliberately **no
 coverage threshold** yet — see the `enable-coverage-gate` skill for turning one on when the code has settled.

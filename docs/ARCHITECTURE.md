@@ -450,6 +450,49 @@ property name that is wrong but well-formed is invisible to all of them, and to 
 is written against the shipped metadata rather than as an assertion about one known-good key, because renames of
 this kind arrive as a batch on the next Boot upgrade.
 
+## Frontend structure
+
+```
+frontend/src
+├── api/            client.ts (the only place fetch is called), sse.ts, ApiError, queryClient + query keys
+├── auth/           session.ts (token storage), AuthContext, route guards, LoginPage
+├── components/     ErrorBoundary, toast provider, and the loading/empty/error state primitives
+├── hooks/          useMediaQuery and the named breakpoints
+├── layout/         AppLayout, Sidebar, TopBar, usePageTitle — the signed-in shell
+├── pages/          one folder-level module per route, all lazy-loaded
+├── styles/         tokens.css (the light/dark custom properties), global.css
+├── theme/          ThemeProvider, ThemeToggle
+└── test/           renderWithProviders and the shared fixtures
+```
+
+Five decisions here are worth knowing about, because each one looks arbitrary until it doesn't:
+
+**All network access goes through `api/client.ts`.** It attaches the bearer token, and — more importantly — it
+converts every failure into an `ApiError` carrying the backend's own `message` from `ApiErrorResponse`. A component
+never sees a raw `TypeError` or an HTTP status, which is what makes "no raw error objects in the UI" enforceable
+rather than aspirational. A transport failure becomes status `0`, so "the server is down" and "the server said no"
+stay distinguishable.
+
+**Token storage is React-free, in `auth/session.ts`.** `client.ts` needs the token and `AuthContext` needs the
+client, so putting the token in the context would be a straight import cycle. Keeping it in a plain module also lets
+the 401 handler be installed once, from the provider, without the client importing React at all.
+
+**The theme is applied by an inline script in `index.html`, not by `ThemeProvider`.** An effect runs after the first
+paint, so a dark-mode user would see exactly one white frame on every page load. `ThemeProvider` owns the
+*subsequent* changes and the persisted preference; those ~12 duplicated lines buy the absence of a flash that no
+amount of CSS can hide.
+
+**Two error boundaries, deliberately.** The outer one in `App.tsx` catches a crash in the providers or the shell
+itself. The inner one in `AppLayout` wraps only the routed page, keyed by pathname — so a page that throws leaves
+the sidebar and top bar working, and navigating away clears the error instead of carrying it forward. Neither
+catches async failures; those are already typed `ApiError`s surfaced inline by the page or as a toast.
+
+**Inline for what the user just did, toast for everything else.** A failed form submission renders next to the
+form, because that's where the user is looking and the message concerns the thing they were editing. A background
+refetch failing, or a mutation whose result is off-screen, gets a toast. The one exception: a 401 never toasts —
+the auth layer is already redirecting and explaining, and a second message about the same event reads as two
+problems.
+
 ## Decisions
 
 Short ADRs live in [`decisions/`](decisions/). Current:
@@ -461,3 +504,4 @@ Short ADRs live in [`decisions/`](decisions/). Current:
 - [0005 — Crawl bounds: depth semantics, hard ceilings, and an unreachable `robots.txt`](decisions/0005-crawl-bounds.md)
 - [0006 — Credential resolution: override before env var, no `last4` for the JWT secret, no caching](decisions/0006-credential-resolution.md)
 - [0007 — LLM providers: models, return types, callbacks, thinking, and depth mapping](decisions/0007-llm-providers.md)
+- [0008 — The JWT is stored in `localStorage`, not an HttpOnly cookie](decisions/0008-jwt-in-localstorage.md)

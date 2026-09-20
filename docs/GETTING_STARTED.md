@@ -132,6 +132,11 @@ defaults to the Vite origin.
 **You'll know it worked when:** you land on an empty Dashboard. No products yet, and that's correct — an empty state,
 not an error.
 
+Two things worth checking while you're here, because they are easy to get wrong and annoying to discover later:
+paste a URL like `http://localhost:5173/account` while signed out and confirm you are sent to the login page and
+then returned to `/account` after signing in, and narrow the window below 1024px to confirm the sidebar becomes a
+drawer behind a hamburger rather than a squeezed rail.
+
 ---
 
 ## Checkpoint 4 — The MVP loop: one product, one source, one run
@@ -192,6 +197,6 @@ The repo is being built incrementally, so not all five are reachable yet:
 |---|---|
 | 1 — Tooling | ✅ verified |
 | 2 — Backend boots on its own | ✅ verified, including all six checks above, against a real running instance |
-| 3 — Full stack | ⏳ needs the frontend (build step 8–9) |
-| 4 — MVP loop | ⏳ crawling (step 4) and the full run / compare / ask orchestration (step 6) are in place; needs the product CRUD endpoints (step 7) to create the product to run |
-| 5 — Tests + container | 🟡 `mvn test` green — 593 tests with a JaCoCo report; `npm test` and the image need steps 9 and 11 |
+| 3 — Full stack | ✅ verified against a real running pair — login, guards, theme, and the responsive shell, at desktop, tablet and phone widths |
+| 4 — MVP loop | ⏳ the backend half is complete end to end; needs the product and run screens (step 9) to drive it from the browser |
+| 5 — Tests + container | 🟡 `mvn test` green — 593 tests with a JaCoCo report; `npm test` green — 37 tests; the image needs step 11 |

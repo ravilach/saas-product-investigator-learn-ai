@@ -11,10 +11,12 @@ LLM does the comparing, on whatever schedule and at whatever depth you ask for. 
 
 > **Build status:** this repo is being built incrementally against
 > [`docs/saas-product-investigator-BUILD-PROMPT.md`](docs/saas-product-investigator-BUILD-PROMPT.md). In place and
-> tested: the backend auth/user/audit foundation, the web crawler, and the secrets layer — per-user BYOK LLM keys,
-> system-wide keys with a documented resolution order, JWT signing-secret rotation, and encryption at rest for all
-> of them. LLM orchestration, the frontend, and the container image are still landing. Docs marked _(pending)_
-> below arrive with the step that produces them.
+> tested: the whole backend — auth/user/audit foundation, web crawler, secrets layer (per-user BYOK LLM keys,
+> system-wide keys with a documented resolution order, JWT signing-secret rotation, encryption at rest for all of
+> them), LLM orchestration over SSE, and the REST API with role enforcement — plus the frontend shell: design
+> tokens and the light/dark toggle, TanStack Query, route-level code-splitting, the sidebar-to-drawer responsive
+> layout, login with route guards, and the shared error-boundary/toast layer. Still landing: the individual
+> frontend screens and the container image. Docs marked _(pending)_ below arrive with the step that produces them.
 
 ## Quick start (MVP)
 

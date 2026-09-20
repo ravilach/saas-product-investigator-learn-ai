@@ -27,7 +27,10 @@ export function AppLayout() {
   // Two meanings for one flag, by viewport: in compact mode `navOpen` is "the drawer is showing",
   // and on desktop it is "the rail is expanded". They are the same control, so they share the state,
   // and each presentation reads it as its own thing - see Sidebar.
-  const [navOpen, setNavOpen] = useState(() => !restoreCollapsed());
+  // `compact` is part of the initial value, not only of the effect below: the effect runs after the
+  // first paint, so seeding this from the saved desktop preference alone makes a phone render one
+  // frame with the drawer open and then animate it shut on every single page load.
+  const [navOpen, setNavOpen] = useState(() => !compact && !restoreCollapsed());
   const [pageTitle, setPageTitle] = useState<string | undefined>(undefined);
 
   /**
