@@ -113,46 +113,85 @@ FROM eclipse-temurin:25-jre-noble
 # forever and makes ECS kill healthy tasks on a loop. It is also what the
 # HEALTHCHECK below uses.
 #
-# The signing key is vendored at docker/mongodb-server-8.0.asc rather than fetched
-# from pgp.mongodb.com during the build, and the repository is read over http
-# rather than https. Both halves of that are deliberate, and together they are
-# what lets a plain `docker build .` work on a corporate network:
+# The signing key is fetched from pgp.mongodb.com during the build. No copy of it
+# lives in this repository - not as a file, not inlined here - because key material
+# checked into a public GitHub repo is key material we are then on the hook for.
+# What is pinned instead is its fingerprint, which is not key material: 40 hex
+# characters that identify the key without being usable as one.
 #
-#   - Fetching the key over https fails behind a TLS-intercepting proxy (Zscaler,
-#     Netskope, most corporate networks) with "curl: (60) SSL certificate problem:
-#     unable to get local issuer certificate", because the proxy terminates TLS
-#     and presents a certificate signed by a private root that no base image has
-#     any reason to trust. Vendoring the key removes that request entirely - and
-#     with it a build-time dependency on pgp.mongodb.com being reachable at all.
-#   - http for the repository is not the downgrade it looks like. apt authenticates
-#     packages by verifying the repository's signature against the key named in
-#     signed-by= - the vendored one - so a tampered mirror fails the signature
-#     check whether or not TLS was used. What https would add here is privacy
-#     about which packages are being downloaded, not integrity. Plain http also
-#     passes through an intercepting proxy untouched, which https cannot.
-#
-# The vendored file is MongoDB's published 8.0 release signing key:
+# That pin is what makes the download trustworthy, and it is the whole design here.
+# The build does not have to trust pgp.mongodb.com, DNS, or whatever proxy sits in
+# between - it fetches, computes the fingerprint of what arrived, and refuses to
+# continue unless it is exactly the key below:
 #
 #   pub   rsa4096 2024-01-11 [SC]
 #         4B07 52C1 BCA2 38C0 B4EE  14DC 41DE 058A 4E7D CA05
 #   uid   MongoDB 8.0 Release Signing Key <packaging@mongodb.com>
 #
-# Check that fingerprint against https://pgp.mongodb.com/server-8.0.asc rather
-# than taking this file's word for it, and re-vendor if MongoDB rotates the key or
-# this image moves off 8.0. Nothing silently falls back to fetching it.
-COPY docker/mongodb-server-8.0.asc /usr/share/keyrings/mongodb-server-8.0.asc
+# Bump MONGODB_GPG_FINGERPRINT (and the URL) if MongoDB rotates the key or this
+# image moves off 8.0, taking the new value from
+# https://pgp.mongodb.com/server-8.0.asc on a network you trust. A mismatch fails
+# the build loudly and prints both fingerprints rather than installing anything.
+#
+# On a corporate network the fetch is the fragile step, not the verification.
+# TLS-interception (Zscaler, Netskope, and most corporate proxies) makes curl fail
+# with "curl: (60) SSL certificate problem: unable to get local issuer
+# certificate", because the proxy presents a certificate signed by a private root
+# that this base image has no reason to trust. The escape hatch is
+# --build-arg MONGODB_GPG_INSECURE=1, and it is a safe one precisely because of the
+# fingerprint pin: it drops TLS verification for this one download, and a proxy
+# that tampers with the key still fails the fingerprint check a line later. That is
+# also why nothing here falls back to it silently - the failure message says to
+# pass it, and the choice stays the operator's.
+ARG MONGODB_GPG_URL=https://pgp.mongodb.com/server-8.0.asc
+ARG MONGODB_GPG_FINGERPRINT=4B0752C1BCA238C0B4EE14DC41DE058A4E7DCA05
+ARG MONGODB_GPG_INSECURE=
 
-# The armored key is used as-is via signed-by=; apt reads ASCII-armored keys
-# directly, which is why no gnupg is installed here just to dearmor it and then
-# purged again to keep the layer clean.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/mongodb-server-8.0.asc] http://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" \
-         > /etc/apt/sources.list.d/mongodb-org-8.0.list \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends mongodb-org-server \
-    # Same layer, or the deleted files stay in the image anyway.
-    && rm -rf /var/lib/apt/lists/*
+# gnupg is installed only to compute that fingerprint and purged in the same layer,
+# so it never reaches the shipped image. The key itself stays ASCII-armored and is
+# used as-is via signed-by=; apt reads armored keys directly, so there is no
+# dearmor step. curl, by contrast, is installed to stay - see the health check
+# note above.
+#
+# The repository itself is still read over http, which is not the downgrade it
+# looks like: apt authenticates packages against the key named in signed-by=, so a
+# tampered mirror fails the signature check whether or not TLS was used. https
+# would add privacy about which packages are downloaded, not integrity, and plain
+# http passes through an intercepting proxy untouched.
+RUN set -eu; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends ca-certificates curl gnupg; \
+    # --retry, because a single dropped connection on a shared runner should not
+    # fail an image build. -L to follow the redirect pgp.mongodb.com serves.
+    if ! curl -fsSL --retry 5 --retry-connrefused --max-time 60 \
+            ${MONGODB_GPG_INSECURE:+--insecure} \
+            "$MONGODB_GPG_URL" -o /tmp/mongodb-server.asc; then \
+        echo "ERROR: could not fetch the MongoDB signing key from $MONGODB_GPG_URL" >&2; \
+        echo "       On a TLS-intercepting corporate network, rebuild with:" >&2; \
+        echo "         docker build --build-arg MONGODB_GPG_INSECURE=1 ." >&2; \
+        echo "       The key is still verified against its pinned fingerprint either way." >&2; \
+        exit 1; \
+    fi; \
+    # --show-keys parses the file without importing it, so no keyring state is
+    # created just to read a fingerprint. The first fpr line is the primary key's.
+    got="$(gpg --show-keys --with-colons /tmp/mongodb-server.asc | awk -F: '$1=="fpr"{print $10; exit}')"; \
+    if [ "$got" != "$MONGODB_GPG_FINGERPRINT" ]; then \
+        echo "ERROR: MongoDB signing key fingerprint mismatch - refusing to install." >&2; \
+        echo "       expected: $MONGODB_GPG_FINGERPRINT" >&2; \
+        echo "       got:      ${got:-<no key found in downloaded file>}" >&2; \
+        exit 1; \
+    fi; \
+    install -m 0644 /tmp/mongodb-server.asc /usr/share/keyrings/mongodb-server-8.0.asc; \
+    rm -f /tmp/mongodb-server.asc; \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/mongodb-server-8.0.asc] http://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" \
+        > /etc/apt/sources.list.d/mongodb-org-8.0.list; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends mongodb-org-server; \
+    # Same layer, or the removed package and the deleted files stay in the image
+    # anyway. ca-certificates and curl were asked for by name, so apt keeps them;
+    # only gnupg and what it dragged in go.
+    apt-get purge -y --auto-remove gnupg; \
+    rm -rf /var/lib/apt/lists/*
 
 # uid/gid 1000 explicitly, because deploy/k8s/deployment.yaml sets
 # runAsNonRoot: true with runAsUser/runAsGroup 1000. A numeric match is what

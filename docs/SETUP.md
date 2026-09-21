@@ -253,6 +253,37 @@ Or app-and-database as two containers, which is what you want as soon as they sh
 docker compose -f deploy/docker-compose.yml up --build      # reads deploy/.env
 ```
 
+### If `docker build` fails fetching the MongoDB signing key
+
+On a corporate network that intercepts TLS (Zscaler, Netskope, and most others), the build stops in the final stage
+with a message like:
+
+```
+ERROR: could not fetch the MongoDB signing key from https://pgp.mongodb.com/server-8.0.asc
+```
+
+The build needs MongoDB's public signing key to install `mongodb-org-server` — the embedded database used only by the
+single-container fallback — and it fetches that key rather than keeping a copy in this repository. An intercepting
+proxy terminates the TLS connection and presents a certificate signed by a private root that the base image has no
+reason to trust, so `curl` refuses it (`curl: (60) SSL certificate problem: unable to get local issuer certificate`).
+
+Rebuild with the TLS check on that one download turned off:
+
+```sh
+docker build --build-arg MONGODB_GPG_INSECURE=1 -t saas-investigator .
+```
+
+**This is not the security hole it reads as.** The `Dockerfile` pins the key's fingerprint
+(`4B0752C1BCA238C0B4EE14DC41DE058A4E7DCA05`) and compares what actually arrived against it, so a proxy that tampers
+with the key fails the build rather than getting its key trusted — and `apt` then verifies every downloaded package
+against that key. What the flag gives up is confidentiality of the request, not the integrity of what comes back.
+The flag is deliberately not the default, so turning it off stays a decision someone makes rather than one the build
+makes quietly.
+
+Two related knobs, both rarely needed: `--build-arg MONGODB_GPG_URL=…` points the fetch at an internal mirror of the
+key, and `--build-arg MONGODB_GPG_FINGERPRINT=…` is what you bump if MongoDB rotates the key or this image moves off
+MongoDB 8.0.
+
 ### Ports, and why there is no reverse proxy
 
 **The container listens on exactly one port, and it serves both the UI and the API.** The `Dockerfile` copies the
