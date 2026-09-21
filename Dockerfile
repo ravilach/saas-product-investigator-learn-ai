@@ -113,44 +113,41 @@ FROM eclipse-temurin:25-jre-noble
 # forever and makes ECS kill healthy tasks on a loop. It is also what the
 # HEALTHCHECK below uses.
 #
-# BEHIND A TLS-INTERCEPTING PROXY (Zscaler, Netskope, most corporate networks),
-# this step fails with:
+# The signing key is vendored at docker/mongodb-server-8.0.asc rather than fetched
+# from pgp.mongodb.com during the build, and the repository is read over http
+# rather than https. Both halves of that are deliberate, and together they are
+# what lets a plain `docker build .` work on a corporate network:
 #
-#   curl: (60) SSL certificate problem: unable to get local issuer certificate
+#   - Fetching the key over https fails behind a TLS-intercepting proxy (Zscaler,
+#     Netskope, most corporate networks) with "curl: (60) SSL certificate problem:
+#     unable to get local issuer certificate", because the proxy terminates TLS
+#     and presents a certificate signed by a private root that no base image has
+#     any reason to trust. Vendoring the key removes that request entirely - and
+#     with it a build-time dependency on pgp.mongodb.com being reachable at all.
+#   - http for the repository is not the downgrade it looks like. apt authenticates
+#     packages by verifying the repository's signature against the key named in
+#     signed-by= - the vendored one - so a tampered mirror fails the signature
+#     check whether or not TLS was used. What https would add here is privacy
+#     about which packages are being downloaded, not integrity. Plain http also
+#     passes through an intercepting proxy untouched, which https cannot.
 #
-# That is not a broken build. The proxy terminates TLS and presents its own
-# certificate, signed by a private root this image has no reason to trust. Mount
-# your corporate root CA - which stays on your machine and is never committed:
+# The vendored file is MongoDB's published 8.0 release signing key:
 #
-#   # macOS; on Linux the cert is usually already in /etc/ssl/certs or from IT
-#   security find-certificate -a -c "Zscaler Root CA" -p \
-#     /Library/Keychains/System.keychain > /tmp/corp-ca.crt
+#   pub   rsa4096 2024-01-11 [SC]
+#         4B07 52C1 BCA2 38C0 B4EE  14DC 41DE 058A 4E7D CA05
+#   uid   MongoDB 8.0 Release Signing Key <packaging@mongodb.com>
 #
-#   docker build --secret id=extra_ca,src=/tmp/corp-ca.crt -t saas-investigator .
-#
-# The secret is optional by design: mount nothing and the guard below is a no-op,
-# so CI and any uninterrupted network run this line exactly as written. It is a
-# BuildKit secret rather than a COPY so the certificate never enters the build
-# context or an image layer of its own. Do note that when it IS used,
-# update-ca-certificates bakes that CA into the image's trust store - harmless for
-# a local dev image, and a good reason not to push one built this way to a shared
-# registry.
-RUN --mount=type=secret,id=extra_ca,target=/tmp/extra-ca.crt \
-    apt-get update \
+# Check that fingerprint against https://pgp.mongodb.com/server-8.0.asc rather
+# than taking this file's word for it, and re-vendor if MongoDB rotates the key or
+# this image moves off 8.0. Nothing silently falls back to fetching it.
+COPY docker/mongodb-server-8.0.asc /usr/share/keyrings/mongodb-server-8.0.asc
+
+# The armored key is used as-is via signed-by=; apt reads ASCII-armored keys
+# directly, which is why no gnupg is installed here just to dearmor it and then
+# purged again to keep the layer clean.
+RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl \
-    # -s, not -f: an empty file means "no secret mounted" just as much as a
-    # missing one does, and copying an empty .crt in would make
-    # update-ca-certificates warn on every build.
-    && if [ -s /tmp/extra-ca.crt ]; then \
-           cp /tmp/extra-ca.crt /usr/local/share/ca-certificates/extra-ca.crt \
-           && update-ca-certificates; \
-       fi \
-    # The armored key is used as-is via signed-by=; apt reads ASCII-armored keys
-    # directly, which avoids installing gnupg just to dearmor it and then having
-    # to purge gnupg again to keep the layer clean.
-    && curl -fsSL https://pgp.mongodb.com/server-8.0.asc \
-         -o /usr/share/keyrings/mongodb-server-8.0.asc \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/mongodb-server-8.0.asc] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/mongodb-server-8.0.asc] http://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" \
          > /etc/apt/sources.list.d/mongodb-org-8.0.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends mongodb-org-server \
