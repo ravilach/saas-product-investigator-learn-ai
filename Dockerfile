@@ -137,21 +137,42 @@ FROM eclipse-temurin:25-jre-noble
 # TLS-interception (Zscaler, Netskope, and most corporate proxies) makes curl fail
 # with "curl: (60) SSL certificate problem: unable to get local issuer
 # certificate", because the proxy presents a certificate signed by a private root
-# that this base image has no reason to trust. The escape hatch is
-# --build-arg MONGODB_GPG_INSECURE=1, and it is a safe one precisely because of the
-# fingerprint pin: it drops TLS verification for this one download, and a proxy
-# that tampers with the key still fails the fingerprint check a line later. That is
-# also why nothing here falls back to it silently - the failure message says to
-# pass it, and the choice stays the operator's.
+# that this base image has no reason to trust.
+#
+# So there are two ways to get the key, tried in that order, and the fingerprint
+# above is what makes the second one as trustworthy as the first:
+#
+#   1. HTTPS from pgp.mongodb.com. What works on an un-intercepted network, and
+#      the only one of the two that also keeps the download private.
+#   2. hkp://keyserver.ubuntu.com:80, asking for the key *by the fingerprint
+#      pinned below*. Plain HTTP on port 80, which is the point: there is no TLS
+#      session for a proxy to intercept, so this path is unaffected by the private
+#      root that breaks step 1. Requesting a specific fingerprint also means the
+#      keyserver cannot answer with a different key - and if it somehow does, the
+#      check below still refuses it.
+#
+# Falling back is safe here for the same reason the escape hatch below is: nothing
+# in this build trusts the transport. It fetches, computes the fingerprint of what
+# arrived, and installs only on an exact match. The fallback is announced on stderr
+# rather than taken silently, so a build log always says which path was used.
+#
+# --build-arg MONGODB_GPG_INSECURE=1 remains as a third lever, for a network that
+# intercepts TLS *and* blocks outbound hkp. It drops TLS verification for that one
+# download; a proxy that tampers with the key still fails the fingerprint check.
+#
+# Plain HTTP against pgp.mongodb.com is deliberately not one of the options:
+# CloudFront answers it with a 301 to HTTPS, so it lands back on the broken path
+# (or, without -L, writes a 167-byte redirect page that fails the check).
 ARG MONGODB_GPG_URL=https://pgp.mongodb.com/server-8.0.asc
+ARG MONGODB_GPG_KEYSERVER=hkp://keyserver.ubuntu.com:80
 ARG MONGODB_GPG_FINGERPRINT=4B0752C1BCA238C0B4EE14DC41DE058A4E7DCA05
 ARG MONGODB_GPG_INSECURE=
 
-# gnupg is installed only to compute that fingerprint and purged in the same layer,
-# so it never reaches the shipped image. The key itself stays ASCII-armored and is
-# used as-is via signed-by=; apt reads armored keys directly, so there is no
-# dearmor step. curl, by contrast, is installed to stay - see the health check
-# note above.
+# gnupg is installed to compute that fingerprint - and, on the fallback path, to
+# talk hkp via the dirmngr it pulls in - then purged in the same layer, so it never
+# reaches the shipped image. The key stays ASCII-armored and is used as-is via
+# signed-by=; apt reads armored keys directly, so there is no dearmor step. curl,
+# by contrast, is installed to stay - see the health check note above.
 #
 # The repository itself is still read over http, which is not the downgrade it
 # looks like: apt authenticates packages against the key named in signed-by=, so a
@@ -161,13 +182,27 @@ ARG MONGODB_GPG_INSECURE=
 RUN set -eu; \
     apt-get update; \
     apt-get install -y --no-install-recommends ca-certificates curl gnupg; \
+    # A throwaway GNUPGHOME: dirmngr needs a writable home to run at all, and this
+    # keeps the keyring state out of the layer even before the purge below.
+    export GNUPGHOME="$(mktemp -d)"; \
     # --retry, because a single dropped connection on a shared runner should not
     # fail an image build. -L to follow the redirect pgp.mongodb.com serves.
-    if ! curl -fsSL --retry 5 --retry-connrefused --max-time 60 \
+    if curl -fsSL --retry 5 --retry-connrefused --max-time 60 \
             ${MONGODB_GPG_INSECURE:+--insecure} \
             "$MONGODB_GPG_URL" -o /tmp/mongodb-server.asc; then \
-        echo "ERROR: could not fetch the MongoDB signing key from $MONGODB_GPG_URL" >&2; \
-        echo "       On a TLS-intercepting corporate network, rebuild with:" >&2; \
+        echo "note: fetched the MongoDB signing key over HTTPS from $MONGODB_GPG_URL" >&2; \
+    elif echo "note: HTTPS fetch failed (TLS-intercepting proxy?) - asking $MONGODB_GPG_KEYSERVER for $MONGODB_GPG_FINGERPRINT instead" >&2; \
+         gpg --batch --keyserver "$MONGODB_GPG_KEYSERVER" \
+             --recv-keys "$MONGODB_GPG_FINGERPRINT"; then \
+        # export-minimal drops third-party signature bloat that keyservers
+        # accumulate; the self-signatures apt needs to verify Release.gpg stay.
+        gpg --batch --armor --export-options export-minimal \
+            --export "$MONGODB_GPG_FINGERPRINT" > /tmp/mongodb-server.asc; \
+    else \
+        echo "ERROR: could not fetch the MongoDB signing key over HTTPS or hkp." >&2; \
+        echo "       Tried: $MONGODB_GPG_URL" >&2; \
+        echo "          and: $MONGODB_GPG_KEYSERVER" >&2; \
+        echo "       If this network intercepts TLS and blocks hkp, rebuild with:" >&2; \
         echo "         docker build --build-arg MONGODB_GPG_INSECURE=1 ." >&2; \
         echo "       The key is still verified against its pinned fingerprint either way." >&2; \
         exit 1; \
@@ -182,7 +217,7 @@ RUN set -eu; \
         exit 1; \
     fi; \
     install -m 0644 /tmp/mongodb-server.asc /usr/share/keyrings/mongodb-server-8.0.asc; \
-    rm -f /tmp/mongodb-server.asc; \
+    rm -rf /tmp/mongodb-server.asc "$GNUPGHOME"; \
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/mongodb-server-8.0.asc] http://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" \
         > /etc/apt/sources.list.d/mongodb-org-8.0.list; \
     apt-get update; \
