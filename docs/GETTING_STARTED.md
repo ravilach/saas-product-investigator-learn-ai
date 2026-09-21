@@ -138,6 +138,17 @@ paste a URL like `http://localhost:5173/account` while signed out and confirm yo
 then returned to `/account` after signing in, and narrow the window below 1024px to confirm the sidebar becomes a
 drawer behind a hamburger rather than a squeezed rail.
 
+Both of those, plus a measured contrast ratio and an overflow check at phone width, are automated:
+
+```sh
+cd tools && npm install && npx playwright install chromium   # once
+node verify-checkpoint3.mjs                                  # 11 checks, exits non-zero on any failure
+```
+
+Run it by hand the first time anyway. The script asserts that the theme toggle changes the computed background and
+that body text clears WCAG AA; whether the result looks *good* is still a judgement only you can make, and the
+screenshots it leaves in `/tmp/cp3-shots` are there for exactly that.
+
 ---
 
 ## Checkpoint 4 — The MVP loop: one product, one source, one run
@@ -154,6 +165,20 @@ adding anything on top of it.
 
 The first run has nothing to compare against, so expect a report that describes the current state rather than a
 list of changes. Run it a second time to get a real comparison.
+
+This whole loop is automated too, against a stub model and a fixture site — so it costs nothing, needs no real key,
+and gives the second run something genuine to find:
+
+```sh
+node tools/mock-llm/anthropic-stub.mjs &      # a model-shaped endpoint
+node tools/mock-llm/fake-product-site.mjs &   # a crawl target with two revisions
+node tools/verify-checkpoint4.mjs             # 11 checks, form to streamed answer
+```
+
+The stub needs the instance pointed at it (`ANTHROPIC_BASE_URL`) and any non-empty key. It advances the fixture
+site's content between the two runs, which is what makes the comparison real rather than empty. Full details, and
+the invocation for walking a container instead of the dev server, are in
+[SETUP.md](SETUP.md#the-browser-harnesses).
 
 ---
 
@@ -197,17 +222,46 @@ broke only once everything else is already built on top of it.
 
 ## Current status of these checkpoints
 
-All five are now reachable. A checkpoint doc that was only ever true partway through the build isn't worth much, so
-this table says exactly what was run and when — not what ought to work. Where a checkpoint has only been verified
-over the API rather than in a browser, it says that too, because the two are not the same evidence.
+All five are now reachable, and all five were re-walked on **2026-09-21 against one finished build** — not five
+claims accumulated at different points in the build. That distinction is the whole value of this section: a
+checkpoint doc that was only ever true partway through isn't worth much. The table says what was actually run, not
+what ought to work, and names the vantage point, because a walk over the API and a walk in a browser are not the
+same evidence.
 
 | Checkpoint | Status |
 |---|---|
-| 1 — Tooling | ✅ **re-verified 2026-09-20**, on JDK 26, Maven 3.9.16, Node 22, Docker 29 (client and server). The `node --version` fix above came out of that walk — the command previously printed here was a Node syntax error. |
-| 2 — Backend boots on its own | ✅ **re-verified 2026-09-20 end to end**, against a fresh `docker compose up -d mongo` volume, so the empty-database path was exercised for real: `MongoDB indexes verified.`, the `DEFAULT ADMIN CREDENTIAL CREATED` banner, health matching the output above, and all six checks passing — including `totalElements: 3` in check 4 and an `LLM_CREDENTIAL_ADDED` entry whose `details` is exactly `{"provider":"ANTHROPIC"}` with the key tail appearing nowhere in it. |
-| 3 — Full stack | ✅ verified earlier in the build — login, route guards, theme, and the responsive shell at desktop, tablet and phone widths. **Not re-walked since the screens landed**; it needs a browser, and every walk since has been over the API instead. |
-| 4 — MVP loop | 🟡 **verified 2026-09-21 against the container image, over the API**, by [`tools/verify-step10.mjs`](../tools/verify-step10.mjs): a product with a website source and an MCP source, runs at all three depths with reports that differ in length and change count, a Compare over two runs, PDF and DOCX exports whose text is read back out, and the same loop as a `READ_ONLY` user. 40 of 40 checks pass. **Not walked in a browser since the screens landed**, which is the half this table cannot speak for. |
-| 5 — Tests + container | ✅ **re-verified 2026-09-21.** Tests: `mvn test` green at **769 tests**, 0 failures, 0 errors, 0 skipped, with a JaCoCo report over 170 classes; `npm test -- --run` green at **80 tests** in 9 files. Container: built from a clean cache and run in five shapes — embedded Mongo, external Mongo, a named volume, a read-only root filesystem, and a host-mounted credential file. On this network the build needs `--build-arg MONGODB_GPG_INSECURE=1`; see [SETUP.md](SETUP.md#if-docker-build-fails-fetching-the-mongodb-signing-key). |
+| 1 — Tooling | ✅ **re-verified 2026-09-21**, on JDK 26.0.2.1, Maven 3.9.16, Node v22.23.2, and Docker 29.6.2 client / 29.5.3 server. The `node --version` note above came out of an earlier walk — the command previously printed here was a Node syntax error, which reads like a missing tool and isn't one. |
+| 2 — Backend boots on its own | ✅ **re-verified 2026-09-21 end to end** against an empty database, so the first-boot path was exercised for real rather than assumed: started in 2.0s, `MongoDB indexes verified.`, the `DEFAULT ADMIN CREDENTIAL CREATED` banner, health exactly as printed above, and all six checks matching — `totalElements: 3` in check 4, a failure entry whose `details` is `{"reason":"incorrect password"}` and nothing else, and an `LLM_CREDENTIAL_ADDED` entry whose `details` is exactly `{"provider":"ANTHROPIC"}` with the key tail appearing nowhere in it. Zero ERROR-level lines across the whole run. |
+| 3 — Full stack | ✅ **re-walked in a browser 2026-09-21**, 11/11 via [`tools/verify-checkpoint3.mjs`](../tools/verify-checkpoint3.mjs): the signed-out redirect, a deep link to `/account` bouncing to login and landing back on `/account`, the Dashboard as an empty state rather than an error, the theme toggle changing the *rendered* background (`rgb(255,255,255)` → `rgb(10,22,34)`), dark being navy rather than `#000`, body text at **16.07:1** contrast, and at 390px an off-canvas sidebar behind a working hamburger with `scrollWidth == clientWidth`. Console clean throughout. |
+| 4 — MVP loop | ✅ **re-walked in a browser 2026-09-21**, 11/11 via [`tools/verify-checkpoint4.mjs`](../tools/verify-checkpoint4.mjs): the creation form, `Starting → Running → Completed`, the live view rendering the backend's own detail lines rather than a generic spinner, named pipeline steps, a report with a real `overallSummary`, a second run over changed fixture content, seven real category badges, both runs in History with their depth badges, and a streamed answer arriving across 6 distinct lengths. The API-level pass is separate evidence, not a substitute: 40/40 via [`tools/verify-step10.mjs`](../tools/verify-step10.mjs), covering the three depths, the exports and the RBAC that a browser walk doesn't reach. Both drive a stub LLM, so both say nothing about analysis quality. |
+| 5 — Tests + container | ✅ **re-verified 2026-09-21.** Tests: `mvn test` green at **801 tests**, 0 failures, 0 errors, 0 skipped, with a JaCoCo report over 173 classes; `npm test -- --run` green at **97 tests** in 11 files. Container: built from a clean cache and run in five shapes — embedded Mongo, external Mongo, a named volume, a read-only root filesystem, and a host-mounted credential file. This is also the walk where the container turned out **not** to be the same app as the dev loop — see below. On this network the build needs `--build-arg MONGODB_GPG_INSECURE=1`; see [SETUP.md](SETUP.md#if-docker-build-fails-fetching-the-mongodb-signing-key). |
+
+### What the last checkpoint-5 walk found
+
+Checkpoint 5 says that a divergence between the container and the dev loop is a real bug worth chasing. Taking that
+seriously on the final pass turned up **three**, none of which any test or any amount of `npm run dev` had shown.
+All three are fixed, each with tests:
+
+1. **Every client route except `/` answered 401 with a JSON body.** `/login`, `/products/{id}`, `/admin/users` and
+   the rest exist only in the client router, so a bookmark, a shared link, or simply pressing reload sent the server
+   a GET it had no mapping for — and it replaced the app with an error payload. There was no SPA fallback at all, and
+   the security config permitted a hand-written list of five static paths. The app's own "not found" page was
+   unreachable in the image. Fixed in `SpaForwardingConfig`, which resolves genuinely unmapped, non-file paths to the
+   HTML shell and shares a single predicate with `SecurityConfig` so the two cannot disagree about which paths those
+   are.
+2. **Unknown paths answered 500, not 404** — and were logged at ERROR with a stack trace, because Spring's
+   `NoResourceFoundException` fell through to the catch-all handler. A typo in a `curl`, or any bot probing for
+   `/wp-login.php`, wrote error-level noise that reads like an outage in progress.
+3. **Every SSE stream was truncated rather than terminated.** Every event arrived and the UI looked correct, so this
+   one hid in plain sight: the response simply never got its chunked terminator, `curl` exited 18 and browsers logged
+   `ERR_INCOMPLETE_CHUNKED_ENCODING` on runs that had in fact succeeded. `OncePerRequestFilter` skips the async
+   dispatch by default, so the JWT filter did not run on the dispatch that completes an `SseEmitter` — while Spring
+   Security's authorization filter did. The run's own stream was denied as anonymous at the exact moment it finished.
+
+Two of the three were masked by a *convenience* of the dev server: Vite serves the SPA fallback itself, and its API
+proxy terminates the stream to the browser itself. The third was masked more simply — nothing in the app ever
+requests a path that doesn't exist, so until someone mistyped one by hand, no code path reached it. That is the
+argument for walking the packaged artifact rather than trusting that it is the same app.
 
 The first `mvn test` of the 2026-09-20 walk failed 7 Testcontainers-backed tests with `Could not find a valid Docker
 environment` on a machine where Docker was plainly running — the two env vars in

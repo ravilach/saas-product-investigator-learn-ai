@@ -134,24 +134,32 @@ export interface SaasProductRequest {
 /** `STANDARD` is a live run; `CUSTOM_RANGE` is a compare answered from stored history alone. */
 export type RunType = 'STANDARD' | 'CUSTOM_RANGE';
 
-/** The categories a change can be filed under. */
+/**
+ * The categories a change can be filed under.
+ *
+ * Lower case because that is what the API actually sends: `ChangeCategory` on the backend is
+ * serialised through `@JsonValue wireName()`, deliberately, so one spelling serves both the prompt the
+ * model answers and the JSON the browser reads. These were upper case here for most of the build,
+ * which type-checked fine and rendered the right *labels* - `humaniseEnum` capitalises either way -
+ * while silently losing every badge colour, since the lookup keys never matched.
+ */
 export type ChangeCategory =
-  | 'FEATURE'
-  | 'PRICING'
-  | 'POLICY'
-  | 'BUGFIX'
-  | 'DOCUMENTATION'
-  | 'DEPRECATION'
-  | 'OTHER';
+  | 'feature'
+  | 'pricing'
+  | 'policy'
+  | 'bugfix'
+  | 'documentation'
+  | 'deprecation'
+  | 'other';
 
-/** How sure the model is. Three levels, not a number - see ADR 0004. */
-export type Confidence = 'HIGH' | 'MEDIUM' | 'LOW';
+/** How sure the model is. Three levels, not a number - see ADR 0004. Lower case on the wire, as above. */
+export type Confidence = 'high' | 'medium' | 'low';
 
 /** One detected change within a report. */
 export interface ChangeResponse {
   sourceName: string;
   sourceType: SourceType;
-  /** Serialised as the enum name, e.g. `FEATURE`. */
+  /** Serialised as the wire name, e.g. `feature` - not as the Java enum constant. */
   category: ChangeCategory;
   description: string;
   confidence: Confidence;

@@ -24,6 +24,13 @@
  * checked afterwards for what was actually asked, which is the part a screenshot cannot show.
  *
  * Usage:  node tools/mock-llm/anthropic-stub.mjs [--port 8081] [--host 0.0.0.0]
+ *                                                [--chunk 400] [--chunk-delay-ms 0]
+ *
+ * The two chunking options exist for one specific question a fast stub cannot answer: whether an
+ * answer *arrives progressively* in the browser. With no delay the whole reply lands inside a
+ * millisecond, so a UI that waited for the last token and a UI that renders each one look identical
+ * from outside. Small chunks with a delay make the difference visible. Defaults are unchanged from
+ * before the options existed, so earlier results stay reproducible.
  */
 
 import http from 'node:http';
@@ -41,6 +48,15 @@ const LOG = process.env.MOCK_LLM_LOG ?? '/tmp/mock-llm-requests.jsonl';
 const HOST = process.argv.includes('--host')
   ? process.argv[process.argv.indexOf('--host') + 1]
   : process.env.MOCK_LLM_HOST ?? '0.0.0.0';
+
+/** Reads a numeric flag, falling back to an env var and then a default. */
+function numArg(flag, envVar, fallback) {
+  const i = process.argv.indexOf(flag);
+  return Number(i >= 0 ? process.argv[i + 1] : process.env[envVar] ?? fallback);
+}
+
+const CHUNK = numArg('--chunk', 'MOCK_LLM_CHUNK', 400);
+const CHUNK_DELAY_MS = numArg('--chunk-delay-ms', 'MOCK_LLM_CHUNK_DELAY_MS', 0);
 
 const CATEGORIES = ['feature', 'pricing', 'policy', 'bugfix', 'documentation', 'deprecation', 'other'];
 const CONFIDENCES = ['high', 'medium', 'low'];
@@ -117,7 +133,7 @@ function sse(res, event, data) {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }
 
-function streamText(res, text, model, extraBlocks) {
+async function streamText(res, text, model, extraBlocks) {
   sse(res, 'message_start', {
     type: 'message_start',
     message: {
@@ -148,12 +164,13 @@ function streamText(res, text, model, extraBlocks) {
     content_block: { type: 'text', text: '' },
   });
   // Chunked rather than sent whole, so the consumer's delta accumulation is genuinely exercised.
-  for (let i = 0; i < text.length; i += 400) {
+  for (let i = 0; i < text.length; i += CHUNK) {
     sse(res, 'content_block_delta', {
       type: 'content_block_delta',
       index,
-      delta: { type: 'text_delta', text: text.slice(i, i + 400) },
+      delta: { type: 'text_delta', text: text.slice(i, i + CHUNK) },
     });
+    if (CHUNK_DELAY_MS > 0) await new Promise((r) => setTimeout(r, CHUNK_DELAY_MS));
   }
   sse(res, 'content_block_stop', { type: 'content_block_stop', index });
   sse(res, 'message_delta', {
@@ -239,7 +256,7 @@ const server = http.createServer((req, res) => {
       'cache-control': 'no-cache',
       connection: 'keep-alive',
     });
-    streamText(res, text, body.model ?? 'stub-model', isReport ? blocks : []);
+    void streamText(res, text, body.model ?? 'stub-model', isReport ? blocks : []);
   });
 });
 

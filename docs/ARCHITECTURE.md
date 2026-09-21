@@ -425,7 +425,7 @@ the source's own `maxDepth`/`maxPages` → the `CRAWL_DEFAULTS` document in `sys
 com.saasinvestigator
 ├── audit/          AuditAction, AuditLog, AuditService
 ├── common/         PageResponse — the one pagination envelope every list endpoint uses
-├── config/         MongoIndexInitializer (explicit index creation)
+├── config/         MongoIndexInitializer (explicit index creation), SpaForwardingConfig
 ├── crawl/          WebCrawler, RobotsTxt, CrawlSettings — URL in, text out, bounded
 ├── credential/     personal + system LLM keys, host-mount loader, resolution order
 ├── crypto/         CryptoService (AES-256-GCM, last4 masking)
@@ -442,6 +442,25 @@ com.saasinvestigator
 
 Packages are by feature, not by layer: `user/` holds its own model, repository, service, and controller. A
 `controllers/` package that grows in lockstep with a `services/` package tells you nothing about what the app does.
+
+### One port, and the rule that keeps it safe
+
+The built frontend is copied into the jar as static resources, so the same Tomcat serves the UI and the API and there
+is no reverse proxy in the image. That makes one boundary load-bearing: **every controller in this application is
+mapped under `/api/**`.**
+
+The reason is `SpaForwardingConfig`. A single-page app's routes (`/login`, `/products/{id}`, `/admin/users`) exist
+only in the client router, so a bookmark or a reload sends the server a `GET` it has no mapping for, and the server
+must answer with the HTML shell. Both that resolver and `SecurityConfig` classify paths through **one shared
+predicate**, `SpaForwardingConfig.isFrontendPath` — anything that is not under `api/`, `actuator/`, `v3/api-docs` or
+`swagger-ui` is the frontend's, and a `GET` for it is public.
+
+So an endpoint mapped outside those prefixes would be **served without authentication**. Keep mapping endpoints under
+`/api`, or add the new prefix to `SERVER_PREFIXES`. Writing the two rules as one predicate is deliberate: the bug
+being prevented is not a missing fallback but two places holding drifting opinions about which paths belong to the
+frontend — which is exactly what shipped before, with every client route but `/` answering 401 JSON in the packaged
+image while the dev server looked perfect.
+[ADR 0009](decisions/0009-spa-fallback-and-one-frontend-predicate.md) has the full reasoning and the alternatives.
 
 ### Configuration is asserted, not assumed
 
@@ -513,3 +532,4 @@ Short ADRs live in [`decisions/`](decisions/). Current:
 - [0006 — Credential resolution: override before env var, no `last4` for the JWT secret, no caching](decisions/0006-credential-resolution.md)
 - [0007 — LLM providers: models, return types, callbacks, thinking, and depth mapping](decisions/0007-llm-providers.md)
 - [0008 — The JWT is stored in `localStorage`, not an HttpOnly cookie](decisions/0008-jwt-in-localstorage.md)
+- [0009 — Client routes fall back to the HTML shell, and one predicate decides which paths those are](decisions/0009-spa-fallback-and-one-frontend-predicate.md)

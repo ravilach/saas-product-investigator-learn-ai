@@ -177,8 +177,16 @@ class RunSessionTest {
         // finally has an answer.
         assertThat(sink.received()).last().satisfies(event -> {
             assertThat(event.type()).isEqualTo(RunEventType.RUN_COMPLETED);
-            assertThat(event.report()).isSameAs(saved);
             assertThat(event.step()).isNull();
+            // The event carries the API representation, not the entity, so that one report is one shape however the
+            // client obtained it. Asserted field by field rather than by identity for that reason, and changeCount
+            // specifically: it is derived in the response and absent from the entity, which is what used to leave a
+            // freshly-finished run rendering "· changes" with no number.
+            assertThat(event.report()).isNotNull();
+            assertThat(event.report().saasProductId()).isEqualTo(saved.getSaasProductId());
+            assertThat(event.report().runBy()).isEqualTo(saved.getRunBy());
+            assertThat(event.report().overallSummary()).isEqualTo(saved.getOverallSummary());
+            assertThat(event.report().changeCount()).isEqualTo(saved.getChanges().size());
         });
     }
 

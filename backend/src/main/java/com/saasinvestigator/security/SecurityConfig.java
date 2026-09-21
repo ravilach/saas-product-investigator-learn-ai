@@ -1,5 +1,6 @@
 package com.saasinvestigator.security;
 
+import com.saasinvestigator.config.SpaForwardingConfig;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -91,8 +92,17 @@ public class SecurityConfig {
 
                         // The built frontend, served from the same jar in the packaged image. These are
                         // public files in a public bundle; the API behind them is what is protected.
-                        .requestMatchers(HttpMethod.GET, "/", "/index.html", "/favicon.ico",
-                                "/assets/**", "/fonts/**").permitAll()
+                        //
+                        // Matched by prefix rather than by listing routes, because the frontend's routes
+                        // are the frontend's business: /login, /products/{id}, /admin/users and the rest
+                        // exist only in the client router, and a browser following a bookmark or pressing
+                        // reload sends an ordinary GET for one of them. Enumerating them here meant every
+                        // route except "/" answered 401 with a JSON body in the packaged image - see
+                        // SpaForwardingConfig, which resolves exactly this set to the HTML shell. The two
+                        // share one predicate so they cannot disagree about which paths those are.
+                        .requestMatchers(request -> HttpMethod.GET.matches(request.getMethod())
+                                && SpaForwardingConfig.isFrontendPath(request.getRequestURI()))
+                        .permitAll()
 
                         // Browser preflight carries no Authorization header and must not 401.
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()

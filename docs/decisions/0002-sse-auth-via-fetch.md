@@ -38,3 +38,14 @@ Reasons, in order of weight:
   gzipped stream defeats the point. That's a global compression setting; if compression is wanted later it must be
   enabled per-path, excluding the SSE endpoints.
 - Any future non-browser consumer gets the same header-based auth as every other endpoint, with no special case.
+- **`JwtAuthenticationFilter` must run on the ASYNC dispatch, and does — `shouldNotFilterAsyncDispatch()` returns
+  `false` there.** This is the one non-obvious cost of being stateless, and it cost a real bug before it was
+  understood. When an `SseEmitter` completes, the container dispatches the request back through the filter chain to
+  finish the response. `OncePerRequestFilter` skips that dispatch **by default**; Spring Security's
+  `AuthorizationFilter` does not skip it (Boot's default `spring.security.filter.dispatcher-types` includes ASYNC).
+  A session-based app would be fine, because the context would be restored from the session — there is no session
+  here, so the context is empty and **the run's own stream is denied as anonymous at the moment it finishes**. The
+  symptom is nasty precisely because it is not a failure: every event arrives, the UI looks correct, and only the
+  chunked terminator is missing, so `curl` exits 18 and browsers log `ERR_INCOMPLETE_CHUNKED_ENCODING` on runs that
+  succeeded. Nothing in development shows it — Vite's proxy terminates the stream to the browser itself. Re-reading
+  the header on that dispatch is cheap and safe: same request object, same header, same verification.

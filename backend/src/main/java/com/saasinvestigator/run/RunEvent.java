@@ -1,7 +1,7 @@
 package com.saasinvestigator.run;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.saasinvestigator.report.ChangeReport;
+import com.saasinvestigator.report.ChangeReportResponse;
 
 /**
  * One event in a run's live execution stream, exactly as the browser receives it.
@@ -27,7 +27,11 @@ import com.saasinvestigator.report.ChangeReport;
  * @param elapsedSeconds whole seconds since the run started, so the UI can show a counter that survives a
  *     reconnect and a replay
  * @param report the persisted report, on {@link RunEventType#RUN_COMPLETED} only; {@code null} otherwise and
- *     omitted from the JSON
+ *     omitted from the JSON. Carried as {@link ChangeReportResponse} - the same representation
+ *     {@code GET .../reports} returns - and not as the stored entity, so a report read from the stream and the same
+ *     report read from the API are byte-for-byte the same object to the client. They were not: the entity has no
+ *     {@code changeCount} (it is derived in the response), so a freshly-finished run rendered its change count as
+ *     an empty string while the identical report in the History timeline rendered it correctly.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record RunEvent(
@@ -36,5 +40,5 @@ public record RunEvent(
         String step,
         String detail,
         long elapsedSeconds,
-        ChangeReport report) {
+        ChangeReportResponse report) {
 }

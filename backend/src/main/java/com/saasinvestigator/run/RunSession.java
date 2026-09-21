@@ -1,6 +1,7 @@
 package com.saasinvestigator.run;
 
 import com.saasinvestigator.report.ChangeReport;
+import com.saasinvestigator.report.ChangeReportResponse;
 import com.saasinvestigator.report.RunType;
 import java.io.IOException;
 import java.time.Duration;
@@ -146,7 +147,9 @@ public class RunSession {
      * @param report the saved report, so the client needs no follow-up request
      */
     public void completed(ChangeReport report) {
-        publish(RunEventType.RUN_COMPLETED, null, null, report);
+        // Mapped to the API representation here rather than sent as the entity: the client uses one type for a
+        // report however it arrives, and the entity is missing the derived fields that type promises.
+        publish(RunEventType.RUN_COMPLETED, null, null, ChangeReportResponse.from(report));
     }
 
     /**
@@ -170,7 +173,7 @@ public class RunSession {
      * against a bug rather than an expected path - an orchestrator that failed a run and then kept emitting would
      * otherwise produce a stream that ends twice, which no client can sensibly render.
      */
-    private synchronized void publish(RunEventType type, RunStep step, String detail, ChangeReport report) {
+    private synchronized void publish(RunEventType type, RunStep step, String detail, ChangeReportResponse report) {
         if (finishedAt != null) {
             log.warn("Ignoring {} published after run {} already finished.", type, runId);
             return;

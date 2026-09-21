@@ -73,3 +73,25 @@ cd frontend && npm test -- --run  # --run matters; bare `npm test` watches
 `Could not find a valid Docker environment` on a machine where Docker plainly works means Testcontainers is looking
 at `/var/run/docker.sock`, which only Docker Desktop provides. Two env vars fix it —
 [SETUP.md](../../../docs/SETUP.md#if-testcontainers-cant-find-docker) has the values for Rancher and Colima.
+
+## Before calling anything done, walk the packaged image
+
+The dev loop is not the app. Vite does two things on your behalf that the jar has to do for itself, and **both hid a
+real bug in this repo until someone walked a container**:
+
+| Vite does this for you | So this bug is invisible in `npm run dev` |
+|---|---|
+| Serves the SPA fallback for unmapped paths | Client routes answering 401/404 instead of the HTML shell on reload or a shared link |
+| Terminates proxied streams to the browser itself | An SSE response that carries every event and then never terminates — `curl` exit 18, `ERR_INCOMPLETE_CHUNKED_ENCODING` |
+
+So for anything touching security config, static resources, the filter chain, or streaming:
+
+```sh
+docker build -t saas-investigator . && docker run -p 8080:8080 saas-investigator
+cd tools && npm install && npx playwright install chromium   # once
+CP3_BASE=http://127.0.0.1:8080 node verify-checkpoint3.mjs   # 11 checks
+```
+
+Neither bug above was reachable by testing harder at the layer already being tested — and a green `mvn test` said
+nothing about either. [GETTING_STARTED.md](../../../docs/GETTING_STARTED.md#what-the-last-checkpoint-5-walk-found)
+has the full account.

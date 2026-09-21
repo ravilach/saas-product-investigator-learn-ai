@@ -12,13 +12,13 @@ import styles from './ReportView.module.css';
  * than in the model's output order also means two reports on the same product read the same way.
  */
 const CATEGORY_ORDER: readonly ChangeCategory[] = [
-  'PRICING',
-  'POLICY',
-  'DEPRECATION',
-  'FEATURE',
-  'BUGFIX',
-  'DOCUMENTATION',
-  'OTHER',
+  'pricing',
+  'policy',
+  'deprecation',
+  'feature',
+  'bugfix',
+  'documentation',
+  'other',
 ];
 
 /** Props for {@link ReportView}. */

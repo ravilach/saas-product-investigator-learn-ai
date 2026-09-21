@@ -51,6 +51,29 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     /**
+     * Runs on the async dispatch too, which {@link OncePerRequestFilter} skips by default.
+     *
+     * <p>This is what the streaming endpoints need. When an {@code SseEmitter} completes, the servlet
+     * container dispatches the request back through the filter chain one last time to finish the response -
+     * and Spring Security's {@code AuthorizationFilter} runs on that dispatch. With this filter skipped, the
+     * context is empty by then, the run's own stream is denied as anonymous, and the container tries to
+     * render an error page onto a response it has already committed. The visible result is a stream that
+     * carries every event and then <strong>never terminates cleanly</strong>: browsers log
+     * {@code ERR_INCOMPLETE_CHUNKED_ENCODING} and {@code curl} exits 18 on a run that in fact succeeded.
+     *
+     * <p>A session-based application would not notice, because the context would be reloaded from the session
+     * on that dispatch. Being stateless, this one has to re-read the token - which is cheap and safe: it is
+     * the same request object, carrying the same header, verified the same way.
+     *
+     * <p>Nothing was hiding this in development: Vite proxies the API, and its proxy terminates the stream
+     * to the browser itself. It only shows up against the jar serving its own frontend.
+     */
+    @Override
+    protected boolean shouldNotFilterAsyncDispatch() {
+        return false;
+    }
+
+    /**
      * Extracts the bearer token, if any.
      *
      * <p>Only the header is read. A {@code ?access_token=} query parameter is deliberately not

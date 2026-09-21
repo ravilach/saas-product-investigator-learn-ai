@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * Maps every exception escaping a controller to the single {@link ApiErrorResponse} JSON shape with
@@ -271,6 +272,31 @@ public class GlobalExceptionHandler {
                 HttpStatus.UNAUTHORIZED,
                 "UNAUTHORIZED",
                 "Authentication is required or your session has expired.",
+                request,
+                ex,
+                false);
+    }
+
+    /**
+     * Handles a request for a path this application does not serve.
+     *
+     * <p>Without this, an unknown path falls through to the catch-all below and is answered
+     * <strong>500 INTERNAL_ERROR</strong> - which says the server broke when in fact the client asked for
+     * something that was never there. It also logs at ERROR with a stack trace, so a bot probing for
+     * {@code /wp-login.php} writes noise that looks like an outage. A mistyped URL is the client's error,
+     * and 404 is the answer for it.
+     *
+     * @param ex the unmatched request
+     * @param request the failing request
+     * @return 404 in the same JSON shape as every other error
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleNoResource(
+            NoResourceFoundException ex, HttpServletRequest request) {
+        return build(
+                HttpStatus.NOT_FOUND,
+                "NOT_FOUND",
+                "No endpoint matches " + request.getMethod() + " " + request.getRequestURI() + ".",
                 request,
                 ex,
                 false);

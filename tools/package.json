@@ -1,0 +1,14 @@
+{
+  "name": "saas-investigator-tools",
+  "private": true,
+  "type": "module",
+  "description": "Verification harnesses. Separate from frontend/ because these drive a running instance rather than building one, and because the mock-llm fixtures must stay installable-free.",
+  "scripts": {
+    "verify:checkpoint3": "node verify-checkpoint3.mjs",
+    "verify:checkpoint4": "node verify-checkpoint4.mjs",
+    "verify:step10": "node verify-step10.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}

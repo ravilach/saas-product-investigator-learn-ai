@@ -172,6 +172,37 @@ persistence, SSE narration, PDF and DOCX rendering, Compare, RBAC, secret maskin
 What it does not mean: anything about analysis quality. With the stub there is no analysis. Judging that needs a real
 model and a human reading the output.
 
+### The browser harnesses
+
+`verify-step10.mjs` speaks HTTP, which leaves out everything that only exists once a browser has rendered it — that a
+colour token produces a readable contrast ratio, that a sidebar is off-canvas rather than merely narrow, that
+streamed text arrives in pieces instead of in one lump. Two more harnesses cover that half:
+
+| Harness | What it walks |
+|---|---|
+| [`verify-checkpoint3.mjs`](../tools/verify-checkpoint3.mjs) | Checkpoint 3 of [GETTING_STARTED.md](GETTING_STARTED.md): route guards and the bounce-and-return through login, the empty-state Dashboard, the theme toggle's effect on the *computed* background, the dark palette being navy rather than black, a measured WCAG contrast ratio, and the responsive shell at 390px including an overflow check. 11 checks. |
+| [`verify-checkpoint4.mjs`](../tools/verify-checkpoint4.mjs) | Checkpoint 4: the whole MVP loop through the UI — create, run, watch the live view render the backend's own detail strings, read the report, advance the fixture site, run again, read the comparison's category badges, expand a History entry, and stream an ad-hoc answer. 11 checks. |
+
+These need Playwright, which is why [`tools/`](../tools/) has a `package.json` and the mock-LLM fixtures do not:
+
+```sh
+cd tools && npm install && npx playwright install chromium
+node verify-checkpoint3.mjs                                  # against the Vite dev server
+CP3_BASE=http://127.0.0.1:8080 node verify-checkpoint3.mjs   # against a container
+```
+
+Each takes its target as an environment variable and defaults to `http://localhost:5173`, the dev server — because
+that is where checkpoints 3 and 4 are written to be walked. Point `CP3_BASE`/`CP4_BASE` at a published container port
+to walk the packaged artifact instead; nothing else changes. `verify-checkpoint4.mjs` takes the fixture site's address
+**twice** — `CP4_SITE` is what gets typed into the source URL field, `CP4_SITE_LOCAL` is how this script reaches the
+same site to advance its content between runs. Those differ exactly when the app is in a container and the harness is
+not; its header comment has the container-mode invocation.
+
+Both write a screenshot per step to `CP3_SHOTS`/`CP4_SHOTS` (`/tmp/cp3-shots` and `/tmp/cp4-shots` by default). That
+is deliberate: a passing assertion about a contrast
+ratio still benefits from an image a human can glance at, and a failing one is much easier to diagnose with the page
+in front of you.
+
 ### Rotating the JWT signing secret
 
 `PUT /api/admin/jwt-secret` with `{ "value": "…" }` (32 characters minimum) sets an override, and

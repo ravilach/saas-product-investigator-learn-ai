@@ -54,6 +54,25 @@ In order of likelihood:
 3. **The session expired.** Finished runs stay replayable for 15 minutes, then the stream 404s with a message
    pointing at history. The report is still there — narration is not durable, the report is.
 
+### The run works, but the browser logs `ERR_INCOMPLETE_CHUNKED_ENCODING`
+
+Or `curl` exits **18** (`transfer closed with outstanding read data remaining`) on a run that succeeded. Every event
+arrives, the UI is correct, the report is saved — only the stream's terminator is missing. This exact bug shipped
+here, so check for it in this order:
+
+1. **`docker logs <container> | grep AuthorizationDeniedException`.** Look for one on `CoyoteAdapter.asyncDispatch`,
+   followed by "response is already committed". If it's there, an auth filter is being skipped on the **ASYNC
+   dispatch** while Spring Security's `AuthorizationFilter` still runs there — so the run's own stream is denied as
+   anonymous at the moment it completes. `OncePerRequestFilter.shouldNotFilterAsyncDispatch()` returns `true` by
+   default; `JwtAuthenticationFilter` overrides it to `false` for precisely this reason. A new filter added to the
+   chain without that override reintroduces it. See
+   [ADR 0002](../../../docs/decisions/0002-sse-auth-via-fetch.md).
+2. **Confirm the payload is complete before blaming the network.** `curl -sS -N <stream-url> -o /tmp/s.txt` then count
+   the event blocks and parse the last one. A complete body with a bad exit code is a framing problem inside the app;
+   a truncated body is a network or proxy problem and belongs in the section above.
+3. **Reproduce against the packaged image, not the dev server.** Vite's proxy terminates the stream to the browser
+   itself, so this class of bug is invisible in `npm run dev` — which is why it survived to a container walk here.
+
 ### Runs finish `partial`
 
 Expected behaviour, not a bug: at least one source couldn't be read and the rest of the run completed. Find which:

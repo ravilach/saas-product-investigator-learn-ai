@@ -9,6 +9,14 @@ The layering is consistent across every package under `backend/src/main/java/com
 (HTTP + authorization) → Service (logic) → Repository (Mongo). Match the neighbours; a new endpoint should be
 unremarkable.
 
+> **Map it under `/api`.** The jar serves the built frontend from the same port, so `SecurityConfig` treats every
+> `GET` outside `api/`, `actuator/`, `v3/api-docs` and `swagger-ui` as the single-page app's own routing and
+> **permits it without authentication** — a `@GetMapping("/reports/export")` at the top level would be public, and
+> `@PreAuthorize` is not what stops that (the request never reaches the method). Every existing controller is under
+> `/api/**`. If a top-level path is genuinely required, add its prefix to `SERVER_PREFIXES` in
+> `config/SpaForwardingConfig` in the same commit, and add a case to `SpaForwardingConfigTest`. Background:
+> [ADR 0009](../../../docs/decisions/0009-spa-fallback-and-one-frontend-predicate.md).
+
 ## Checklist
 
 1. **Request/response records** — `XxxRequest` with Bean Validation annotations, `XxxResponse` as a record with a
@@ -46,3 +54,7 @@ cd frontend && npm test -- --run
 Then `curl` it three ways: with no token (expect 401 in the app's JSON error shape), with a token of a role that
 shouldn't have it (expect 403), and with the right role (expect the real thing). The first two are the ones people
 skip and the ones that matter.
+
+The no-token call is also what catches a path accidentally mapped outside `/api`: a **200 or a page of HTML** where
+you expected 401 means the request never reached your method at all, and the endpoint is public. `mvn test` will not
+tell you this — the security rule is about the path, not the annotation.

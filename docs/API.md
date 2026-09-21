@@ -108,12 +108,17 @@ frontend has one error renderer.
 | 503 | `PROVIDER_UNAVAILABLE` | This server is already at its configured concurrency limit, or an export could not be rendered. Safe to retry |
 | 500 | `INTERNAL_ERROR` | Anything unhandled. `message` is generic on purpose; the detail is in the server log against a correlation id |
 
-Two things worth knowing about 403 and 404:
+Three things worth knowing about 403 and 404:
 
 - An **unauthenticated** request to an `ADMIN` endpoint is a **401**, not a 403 — the entry point rejects it before
   authorization runs. 403 always means "we know who you are, and the answer is still no."
 - A nested resource that exists but belongs to someone else's parent — a report id from a different product, a run id
   from a different product — is a **404**, not a 403. Distinguishing them would confirm that the id exists.
+- A path with **no mapping at all** under `/api` is also this JSON 404 — `{"error":"NOT_FOUND","message":"No endpoint
+  matches GET /api/does-not-exist."}` — and never an HTML page. A mistyped path names itself back at you, and clients
+  can parse the answer. Note the prefix matters: the app serves its own frontend, so unmapped paths *outside* `/api`
+  return the single-page app's HTML shell by design, and a client that drops the prefix gets HTML where it expected
+  JSON. That is the most likely explanation for "the API returned a web page."
 
 ### Endpoints outside this description
 

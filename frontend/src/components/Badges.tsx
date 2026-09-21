@@ -13,13 +13,13 @@ import styles from './Badges.module.css';
 
 /** Which CSS class each change category uses. */
 const CATEGORY_CLASS: Record<ChangeCategory, string> = {
-  FEATURE: styles.feature,
-  PRICING: styles.pricing,
-  POLICY: styles.policy,
-  BUGFIX: styles.bugfix,
-  DOCUMENTATION: styles.documentation,
-  DEPRECATION: styles.deprecation,
-  OTHER: styles.other,
+  feature: styles.feature,
+  pricing: styles.pricing,
+  policy: styles.policy,
+  bugfix: styles.bugfix,
+  documentation: styles.documentation,
+  deprecation: styles.deprecation,
+  other: styles.other,
 };
 
 /**
@@ -57,8 +57,10 @@ export function DepthBadge({ depth }: { depth: AnalysisDepth }) {
  * @returns the badge
  */
 export function ConfidenceBadge({ confidence }: { confidence: string }) {
+  // Compared against the wire values, which are lower case. Upper-case comparisons here matched
+  // nothing, so every level rendered as the neutral middle one.
   const tone =
-    confidence === 'HIGH' ? 'pill-success' : confidence === 'LOW' ? 'pill-warning' : 'pill-neutral';
+    confidence === 'high' ? 'pill-success' : confidence === 'low' ? 'pill-warning' : 'pill-neutral';
   return <span className={`pill ${tone}`}>{humaniseEnum(confidence)} confidence</span>;
 }
 

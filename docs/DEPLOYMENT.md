@@ -47,6 +47,20 @@ because nothing failed on its side — the connection died.
 | AWS ALB | `idle_timeout.timeout_seconds=600` on the load balancer (not the target group) |
 | Cloudflare / similar | Confirm streaming responses are passed through, not buffered |
 
+**Before blaming the proxy, check whether the body was actually complete.** A truncated stream and a *complete stream
+that was never terminated* look identical in a browser — both log `ERR_INCOMPLETE_CHUNKED_ENCODING` — and only one of
+them is an infrastructure problem:
+
+```sh
+curl -sS -N <stream-url> -H "Authorization: Bearer $TOKEN" -o /tmp/s.txt; echo "exit $?"
+grep -c '^event:' /tmp/s.txt      # every event present, ending in run_completed?
+```
+
+Events missing from the middle or a body that stops mid-event is the proxy, and this section applies. **All** the
+events present, ending in a well-formed `run_completed`, with `curl` still exiting 18, is an application-side framing
+bug — that exact failure shipped here once, caused by an auth filter being skipped on the servlet ASYNC dispatch.
+`troubleshoot-running-instance` has the diagnosis; no amount of proxy configuration will fix it.
+
 ### 3. Unset `MONGODB_URI` or `CREDENTIAL_ENCRYPTION_KEY` and the container invents its own
 
 Both have container-local fallbacks so that a bare `docker run` is a complete working instance (see
