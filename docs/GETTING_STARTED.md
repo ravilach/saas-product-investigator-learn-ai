@@ -197,19 +197,19 @@ broke only once everything else is already built on top of it.
 
 ## Current status of these checkpoints
 
-The repo is being built incrementally, so not all five are reachable yet. A checkpoint doc that was only ever true
-partway through the build isn't worth much, so this table says exactly what was run and when — not what ought to
-work.
+All five are now reachable. A checkpoint doc that was only ever true partway through the build isn't worth much, so
+this table says exactly what was run and when — not what ought to work. Where a checkpoint has only been verified
+over the API rather than in a browser, it says that too, because the two are not the same evidence.
 
 | Checkpoint | Status |
 |---|---|
 | 1 — Tooling | ✅ **re-verified 2026-09-20**, on JDK 26, Maven 3.9.16, Node 22, Docker 29 (client and server). The `node --version` fix above came out of that walk — the command previously printed here was a Node syntax error. |
 | 2 — Backend boots on its own | ✅ **re-verified 2026-09-20 end to end**, against a fresh `docker compose up -d mongo` volume, so the empty-database path was exercised for real: `MongoDB indexes verified.`, the `DEFAULT ADMIN CREDENTIAL CREATED` banner, health matching the output above, and all six checks passing — including `totalElements: 3` in check 4 and an `LLM_CREDENTIAL_ADDED` entry whose `details` is exactly `{"provider":"ANTHROPIC"}` with the key tail appearing nowhere in it. |
-| 3 — Full stack | ✅ verified earlier in the build — login, route guards, theme, and the responsive shell at desktop, tablet and phone widths. **Not re-walked since**; it needs a browser, and the screens it would exercise are still step 9. |
-| 4 — MVP loop | ⏳ **not reachable yet.** The backend half is complete and tested end to end, but driving it from the browser needs the product and run screens (step 9). |
-| 5 — Tests + container | 🟡 **test half re-verified 2026-09-20**: `mvn test` green at **758 tests**, 0 failures, 0 errors, 0 skipped, with a JaCoCo report over 170 classes; `npm test -- --run` green at **37 tests** in 6 files. **Container half not reachable** — the image is step 11. |
+| 3 — Full stack | ✅ verified earlier in the build — login, route guards, theme, and the responsive shell at desktop, tablet and phone widths. **Not re-walked since the screens landed**; it needs a browser, and every walk since has been over the API instead. |
+| 4 — MVP loop | 🟡 **verified 2026-09-21 against the container image, over the API**, by [`tools/verify-step10.mjs`](../tools/verify-step10.mjs): a product with a website source and an MCP source, runs at all three depths with reports that differ in length and change count, a Compare over two runs, PDF and DOCX exports whose text is read back out, and the same loop as a `READ_ONLY` user. 40 of 40 checks pass. **Not walked in a browser since the screens landed**, which is the half this table cannot speak for. |
+| 5 — Tests + container | ✅ **re-verified 2026-09-21.** Tests: `mvn test` green at **769 tests**, 0 failures, 0 errors, 0 skipped, with a JaCoCo report over 170 classes; `npm test -- --run` green at **80 tests** in 9 files. Container: built from a clean cache and run in five shapes — embedded Mongo, external Mongo, a named volume, a read-only root filesystem, and a host-mounted credential file. On this network the build needs `--build-arg MONGODB_GPG_INSECURE=1`; see [SETUP.md](SETUP.md#if-docker-build-fails-fetching-the-mongodb-signing-key). |
 
-The first `mvn test` of that walk failed 7 Testcontainers-backed tests with `Could not find a valid Docker
+The first `mvn test` of the 2026-09-20 walk failed 7 Testcontainers-backed tests with `Could not find a valid Docker
 environment` on a machine where Docker was plainly running — the two env vars in
 [SETUP.md](SETUP.md#if-testcontainers-cant-find-docker) fixed it, and those instructions are now confirmed correct
 for Rancher Desktop. That is the documented failure behaving as designed: those tests fail rather than skip, because

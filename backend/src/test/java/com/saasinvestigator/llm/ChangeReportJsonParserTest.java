@@ -27,7 +27,7 @@ import org.junit.jupiter.api.Test;
 class ChangeReportJsonParserTest {
 
     private final PromptBuilder promptBuilder =
-            new PromptBuilder(new LlmProperties("claude-sonnet-5", "gpt-6-astra", 600_000));
+            new PromptBuilder(new LlmProperties("claude-sonnet-5", "gpt-6-astra", "", "", 600_000));
     private final ChangeReportJsonParser parser = new ChangeReportJsonParser(promptBuilder);
 
     private final RunContext oneSource = LlmTestFixtures.standardRun(AnalysisDepth.REGULAR,

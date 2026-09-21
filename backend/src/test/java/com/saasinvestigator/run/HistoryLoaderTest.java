@@ -30,6 +30,8 @@ import com.saasinvestigator.report.SourceInclusion;
 import com.saasinvestigator.snapshot.Snapshot;
 import com.saasinvestigator.snapshot.SnapshotRepository;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -133,6 +135,35 @@ class HistoryLoaderTest {
         assertThatThrownBy(() -> loader.validateRange(product(), JUNE_1, tomorrow))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessageContaining("cannot extend into the future");
+    }
+
+    @Test
+    void aRangeEndingAtTheEndOfTodayIsAcceptedBecauseThatIsWhatPickingTodayMeans() {
+        when(snapshots.findFirstBySaasProductIdOrderByFetchedAtAsc("product-1"))
+                .thenReturn(Optional.of(snapshot("s1", "Changelog", "text", JUNE_1)));
+
+        // Exactly what CompareRequest.toInstant() produces for toDate = today, and the single most likely range a
+        // user picks. Checked against now() instead of today it is "the future" for all but the last millisecond of
+        // the day, so this passing is the difference between Compare working and Compare being unusable.
+        Instant endOfToday = LocalDate.now(ZoneOffset.UTC)
+                .plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant().minusMillis(1);
+
+        loader.validateRange(product(), JUNE_1, endOfToday);
+    }
+
+    @Test
+    void aProductFirstRunTodayCanBeComparedOverToday() {
+        Instant thisAfternoon = Instant.now();
+        when(snapshots.findFirstBySaasProductIdOrderByFetchedAtAsc("product-1"))
+                .thenReturn(Optional.of(snapshot("s1", "Changelog", "text", thisAfternoon)));
+
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        Instant startOfToday = today.atStartOfDay(ZoneOffset.UTC).toInstant();
+        Instant endOfToday = today.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant().minusMillis(1);
+
+        // Instant-granular, this is refused with "start the range on or after <today>" - advice the user has already
+        // taken, since today is the date they picked. Both bounds and the data are on the same day, so it is fine.
+        loader.validateRange(product(), startOfToday, endOfToday);
     }
 
     @Test

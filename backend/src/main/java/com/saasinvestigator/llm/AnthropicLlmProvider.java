@@ -290,10 +290,13 @@ public class AnthropicLlmProvider implements LlmProvider {
     }
 
     private AnthropicClient client() {
-        return AnthropicOkHttpClient.builder()
+        AnthropicOkHttpClient.Builder builder = AnthropicOkHttpClient.builder()
                 .apiKey(apiKey)
-                .timeout(REQUEST_TIMEOUT)
-                .build();
+                .timeout(REQUEST_TIMEOUT);
+        // Only touched when an override is configured, so an unset value leaves the SDK's own default in place
+        // rather than replacing it with this application's idea of what that default is.
+        properties.anthropicBaseUrl().ifPresent(builder::baseUrl);
+        return builder.build();
     }
 
     /**

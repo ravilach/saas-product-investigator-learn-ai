@@ -14,6 +14,7 @@ import com.saasinvestigator.report.SourceInclusion;
 import com.saasinvestigator.snapshot.Snapshot;
 import com.saasinvestigator.snapshot.SnapshotRepository;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -78,6 +79,22 @@ public class HistoryLoader {
      * starts at, so the user can move their picker there. That is the whole reason
      * {@code findFirstBySaasProductIdOrderByFetchedAtAsc} exists.
      *
+     * <h2>Why the comparisons are day-granular</h2>
+     *
+     * <p>The bounds arrive as instants but the request that produced them was two calendar dates - see
+     * {@link CompareRequest}, which resolves {@code toDate} to the <em>end</em> of its day precisely so that picking
+     * today includes the run the user just did. Comparing those instants against {@code Instant.now()} undoes that:
+     * for all but the last millisecond of the day, "up to today" is an instant in the future, and the most natural
+     * range a user can pick is refused as though they had asked about tomorrow.
+     *
+     * <p>The same mismatch makes the earliest-data check misfire on a product whose first run was today. The window
+     * starts at midnight, the only snapshot is from this afternoon, and the user is told to "start the range on or
+     * after 21 Sep 2026" - which is the date they picked. An error whose own advice is what the user already did is
+     * worse than no error.
+     *
+     * <p>So both comparisons are made between whole UTC days, which is the unit the request is actually expressed in.
+     * A range genuinely in the future, or one genuinely starting before any data exists, is still refused.
+     *
      * @param product the product being compared
      * @param from start of the window
      * @param to end of the window
@@ -88,10 +105,10 @@ public class HistoryLoader {
             throw new BadRequestException("The start of the range must not be after its end.");
         }
 
-        Instant now = Instant.now();
-        if (from.isAfter(now) || to.isAfter(now)) {
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        if (day(from).isAfter(today) || day(to).isAfter(today)) {
             throw new BadRequestException(
-                    "A comparison range cannot extend into the future - there is no data from after now.");
+                    "A comparison range cannot extend into the future - there is no data from after today.");
         }
 
         Optional<Snapshot> earliest = snapshots.findFirstBySaasProductIdOrderByFetchedAtAsc(product.getId());
@@ -100,11 +117,16 @@ public class HistoryLoader {
                     + "Run it at least twice before comparing two dates.");
         }
         Instant earliestAt = earliest.get().getFetchedAt();
-        if (earliestAt.isAfter(from)) {
+        if (day(earliestAt).isAfter(day(from))) {
             throw new BadRequestException("There is no stored data for this product from before "
                     + DAY.format(from) + ". The earliest data available is from " + DAY.format(earliestAt)
                     + " - start the range on or after that date.");
         }
+    }
+
+    /** The UTC day an instant falls on. UTC because every stored timestamp in this application is. */
+    private static LocalDate day(Instant instant) {
+        return instant.atZone(ZoneOffset.UTC).toLocalDate();
     }
 
     /**

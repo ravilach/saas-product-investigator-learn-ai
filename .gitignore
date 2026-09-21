@@ -142,4 +142,3 @@ logs/
 *.swp
 *.swo
 *~
-docker/mongodb-server-8.0.asc

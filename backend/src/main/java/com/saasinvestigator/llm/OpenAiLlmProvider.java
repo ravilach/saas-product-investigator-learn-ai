@@ -290,10 +290,12 @@ public class OpenAiLlmProvider implements LlmProvider {
     }
 
     private OpenAIClient client() {
-        return OpenAIOkHttpClient.builder()
+        OpenAIOkHttpClient.Builder builder = OpenAIOkHttpClient.builder()
                 .apiKey(apiKey)
-                .timeout(REQUEST_TIMEOUT)
-                .build();
+                .timeout(REQUEST_TIMEOUT);
+        // See AnthropicLlmProvider's equivalent: absent means "leave the SDK's default alone".
+        properties.openAiBaseUrl().ifPresent(builder::baseUrl);
+        return builder.build();
     }
 
     /** See {@link AnthropicLlmProvider}'s equivalent: the SDK's message can contain the request body. */

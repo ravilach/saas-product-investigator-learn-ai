@@ -38,7 +38,7 @@ class PromptBuilderTest {
     private static final int SMALL_BUDGET = 20_000;
 
     private final PromptBuilder builder = new PromptBuilder(
-            new LlmProperties("claude-sonnet-5", "gpt-6-astra", SMALL_BUDGET));
+            new LlmProperties("claude-sonnet-5", "gpt-6-astra", "", "", SMALL_BUDGET));
 
     // ---------------------------------------------------------------------
     // The JSON contract

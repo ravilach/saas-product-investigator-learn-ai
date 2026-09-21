@@ -42,7 +42,7 @@ class LlmProviderResolverTest {
         users = mock(UserRepository.class);
         userCredentials = mock(UserCredentialService.class);
         systemCredentials = mock(SystemCredentialService.class);
-        LlmProperties properties = new LlmProperties("claude-sonnet-5", "gpt-6-astra", 600_000);
+        LlmProperties properties = new LlmProperties("claude-sonnet-5", "gpt-6-astra", "", "", 600_000);
         PromptBuilder promptBuilder = new PromptBuilder(properties);
         resolver = new LlmProviderResolver(users, userCredentials, systemCredentials, properties, promptBuilder,
                 new ChangeReportJsonParser(promptBuilder));

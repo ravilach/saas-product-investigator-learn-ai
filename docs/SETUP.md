@@ -54,8 +54,10 @@ variables at all must produce a fully working instance.
 |---|---|---|---|
 | `ANTHROPIC_API_KEY` | no | none | Configure via Admin Console → Secrets after boot instead. Until a key exists from some source, a run or ask fails with an actionable message rather than a stack trace. |
 | `ANTHROPIC_MODEL` | no | `claude-sonnet-5` | |
+| `ANTHROPIC_BASE_URL` | no | none (the SDK's own endpoint) | Points the Anthropic client somewhere else — a gateway, a proxy, or a stub. See [pointing a provider somewhere else](#pointing-a-provider-somewhere-else). |
 | `OPENAI_API_KEY` | no | none | Same story as the Anthropic key. |
 | `OPENAI_MODEL` | no | `gpt-6-astra` | |
+| `OPENAI_BASE_URL` | no | none (the SDK's own endpoint) | Same as `ANTHROPIC_BASE_URL`, for the OpenAI client. |
 | `LLM_MAX_PROMPT_CHARS` | no | `600000` | Total source-text budget for one prompt, across every block in it. See [prompt and concurrency limits](#prompt-and-concurrency-limits). |
 | `RUN_CONCURRENCY` | no | `3` | Runs and comparisons executing at once. |
 | `RUN_QUEUE_CAPACITY` | no | `12` | Runs allowed to wait. Full means `503`, not a longer queue. |
@@ -131,6 +133,44 @@ configured at all.
 
 Nothing ever returns a stored key. The API answers with `{ provider, configured, last4 }` and, for system keys, the
 `source` that won — `OVERRIDE`, `ENV_VAR`, `HOST_MOUNT`, or `NONE`.
+
+### Pointing a provider somewhere else
+
+`ANTHROPIC_BASE_URL` and `OPENAI_BASE_URL` (`app.llm.anthropic.base-url`, `app.llm.openai.base-url`) replace the
+endpoint the provider's SDK would use by default. Unset — the normal case — the SDK's own default applies; nothing
+about the request path changes. Three reasons to set one:
+
+- **A gateway or proxy** in front of the provider, for egress control, logging or spend caps.
+- **An API-compatible service** you host yourself.
+- **A stub, so the pipeline can be tested without a model.** This is what the repo uses — see below.
+
+Both are validated at startup: a value without a scheme and host (`gateway:8080`) fails the boot with a message
+naming the property, rather than failing inside an SDK call minutes into someone's first run. When one is set, the
+startup log says so explicitly — an instance quietly talking to something other than the provider's API is
+something an operator should be able to confirm from the logs rather than by reading env vars.
+
+The key still has to be present. A base URL is not a way to run without credentials; the stub below accepts any key,
+and the containers that use it are given the literal string `stub-key-not-a-real-credential`.
+
+### Testing the pipeline without a model
+
+[`tools/mock-llm/`](../tools/mock-llm/) holds two fixtures, and
+[`tools/verify-step10.mjs`](../tools/verify-step10.mjs) drives the whole application against them. No dependencies
+beyond Node, no provider account, no spend.
+
+| Fixture | What it is |
+|---|---|
+| `anthropic-stub.mjs` | An Anthropic-shaped endpoint. Streams invented but well-formed reports, honours the structured-output schema, and emits MCP tool-use blocks when the request carries `mcp_servers`. It reads the requested depth out of the prompt's own instruction text and returns a correspondingly larger report, which is what makes "do the three depths actually differ" a real check. Logs every request it receives to `MOCK_LLM_LOG`. |
+| `fake-product-site.mjs` | A crawl target with two revisions of `/changelog` and `/pricing`. `POST /_advance` switches revisions, so a second run has something genuine to find. Its `robots.txt` disallows `/internal/`, and the disallowed page is marked, so "did the crawler obey robots" is answerable rather than assumed. |
+
+`verify-step10.mjs` turns every clause of BUILD ORDER step 10 into one numbered assertion and exits non-zero on any
+failure — its header comment has the exact commands, including why the fixtures run as containers on a shared network
+rather than on the host. Currently **40 of 40 checks pass**.
+
+What a green run means: crawl, robots, prompt construction, the provider call, the structured-output parse,
+persistence, SSE narration, PDF and DOCX rendering, Compare, RBAC, secret masking and auditing all work end to end.
+What it does not mean: anything about analysis quality. With the stub there is no analysis. Judging that needs a real
+model and a human reading the output.
 
 ### Rotating the JWT signing secret
 
