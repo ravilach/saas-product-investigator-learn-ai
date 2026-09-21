@@ -112,8 +112,39 @@ FROM eclipse-temurin:25-jre-noble
 # runs `curl` from inside this image, and a missing binary there fails the check
 # forever and makes ECS kill healthy tasks on a loop. It is also what the
 # HEALTHCHECK below uses.
-RUN apt-get update \
+#
+# BEHIND A TLS-INTERCEPTING PROXY (Zscaler, Netskope, most corporate networks),
+# this step fails with:
+#
+#   curl: (60) SSL certificate problem: unable to get local issuer certificate
+#
+# That is not a broken build. The proxy terminates TLS and presents its own
+# certificate, signed by a private root this image has no reason to trust. Mount
+# your corporate root CA - which stays on your machine and is never committed:
+#
+#   # macOS; on Linux the cert is usually already in /etc/ssl/certs or from IT
+#   security find-certificate -a -c "Zscaler Root CA" -p \
+#     /Library/Keychains/System.keychain > /tmp/corp-ca.crt
+#
+#   docker build --secret id=extra_ca,src=/tmp/corp-ca.crt -t saas-investigator .
+#
+# The secret is optional by design: mount nothing and the guard below is a no-op,
+# so CI and any uninterrupted network run this line exactly as written. It is a
+# BuildKit secret rather than a COPY so the certificate never enters the build
+# context or an image layer of its own. Do note that when it IS used,
+# update-ca-certificates bakes that CA into the image's trust store - harmless for
+# a local dev image, and a good reason not to push one built this way to a shared
+# registry.
+RUN --mount=type=secret,id=extra_ca,target=/tmp/extra-ca.crt \
+    apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl \
+    # -s, not -f: an empty file means "no secret mounted" just as much as a
+    # missing one does, and copying an empty .crt in would make
+    # update-ca-certificates warn on every build.
+    && if [ -s /tmp/extra-ca.crt ]; then \
+           cp /tmp/extra-ca.crt /usr/local/share/ca-certificates/extra-ca.crt \
+           && update-ca-certificates; \
+       fi \
     # The armored key is used as-is via signed-by=; apt reads ASCII-armored keys
     # directly, which avoids installing gnupg just to dearmor it and then having
     # to purge gnupg again to keep the layer clean.
