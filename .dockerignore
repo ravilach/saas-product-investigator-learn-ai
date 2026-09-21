@@ -1,0 +1,55 @@
+# Keeps the build context small, the build reproducible, and secrets out of the
+# image. The context is the repo root (`docker build .`, and `context: ..` in
+# deploy/docker-compose.yml), so without this file every local node_modules and
+# target directory would be uploaded to the daemon on every build.
+#
+# Three different jobs here, and the middle one is the easy one to miss.
+
+# --- Secrets. Never in an image, however convenient. --------------------------
+# deploy/.env holds a real CREDENTIAL_ENCRYPTION_KEY on a working machine. The
+# whole deploy/ directory is excluded below too, but this is stated separately
+# because it must survive someone later deciding they need deploy/ in the context.
+**/.env
+**/.env.*
+!**/.env.example
+*.pem
+*.key
+*.p12
+*.jks
+
+# --- Build output that the image rebuilds itself. -----------------------------
+# This is the load-bearing part. frontend/dist and backend/target exist on any
+# machine that has run the app locally, and both are *also* produced inside the
+# build. Leaving them in the context means a stale local bundle can be copied
+# over the freshly built one, producing an image that serves a frontend nobody
+# compiled from the committed source - and it fails silently, looking only like a
+# change that "didn't take".
+**/node_modules
+**/target
+frontend/dist
+**/*.tsbuildinfo
+**/coverage
+
+# --- Everything the build has no use for. -------------------------------------
+# Excluded to keep the context small and, more usefully, to stop edits to docs or
+# CI config from invalidating Docker's layer cache and triggering a full rebuild.
+.git
+.gitignore
+.github
+.claude
+.vscode
+.idea
+docs
+evals
+harness
+deploy
+README.md
+LICENSE
+*.md
+Dockerfile
+.dockerignore
+
+# --- Local noise. -------------------------------------------------------------
+.DS_Store
+**/*.log
+**/npm-debug.log*

@@ -66,7 +66,7 @@ variables at all must produce a fully working instance.
 | `CREDENTIAL_ENCRYPTION_KEY` | no | none locally (the app refuses to start without it); generated into `/data/credential-key` inside the container | The master key for everything encrypted at rest. See the warning below. |
 | `IGNORE_HOST_CREDENTIALS` | no | `false` | `true` skips the host-mounted credential file even when present. |
 | `HOST_CREDENTIAL_ANTHROPIC_PATH` | no | `/run/host-credentials/anthropic-api-key` | Mount a key file here instead of putting it in the container's env. |
-| `SERVER_PORT` | no | `8080` | |
+| `SERVER_PORT` | no | `8080` | The one port that serves both the UI and the API. To reach the app on port 80, prefer publishing it — `-p 80:8080` — rather than setting this. See [ports](#ports-and-why-there-is-no-reverse-proxy). |
 | `CORS_ALLOWED_ORIGINS` | no | `http://localhost:5173,http://127.0.0.1:5173` | Only matters in local development; in the packaged image the frontend and API share an origin. |
 
 > **`CREDENTIAL_ENCRYPTION_KEY` is the one variable worth being careful with.** LLM API keys, MCP `authToken`s, and
@@ -252,6 +252,61 @@ Or app-and-database as two containers, which is what you want as soon as they sh
 ```sh
 docker compose -f deploy/docker-compose.yml up --build      # reads deploy/.env
 ```
+
+### Ports, and why there is no reverse proxy
+
+**The container listens on exactly one port, and it serves both the UI and the API.** The `Dockerfile` copies the
+built frontend into `src/main/resources/static/`, which Spring Boot serves straight out of the jar, so
+`http://host:8080/` is the UI and `http://host:8080/api/...` is the API on the same origin.
+
+That is why there is **no NGINX, no Caddy, and no reverse proxy inside this image**, and why adding one would be a
+step backwards rather than forwards:
+
+- There is nothing to route. A proxy in front of a single upstream that already serves both halves is a second
+  process to supervise and a second config to keep in sync for no routing decision.
+- It would break run progress unless configured carefully. Run progress is Server-Sent Events, which is why
+  `server.compression.enabled=false` and `spring.mvc.async.request-timeout=600000` are set in
+  `application.properties`. NGINX buffers proxied responses by default, so without an explicit `proxy_buffering
+  off;` and a raised `proxy_read_timeout`, progress events arrive in one burst at the end — or the stream is cut
+  mid-run.
+- Single-origin is load-bearing elsewhere. `CORS_ALLOWED_ORIGINS` only exists for the Vite dev server, and
+  [`decisions/0008-jwt-in-localstorage.md`](decisions/0008-jwt-in-localstorage.md) assumes the API is same-origin.
+
+TLS, a hostname, and who is allowed to reach the app *are* jobs for something in front — but for an Ingress, an ALB,
+or a Gateway, outside the image, where it can be terminated once for every replica. See
+[`DEPLOYMENT.md`](DEPLOYMENT.md).
+
+#### Reaching it on port 80
+
+Publish it there. The container port stays 8080; only the host side changes:
+
+```sh
+docker run -p 80:8080 saas-investigator      # then open http://localhost/
+```
+
+Both halves of `-p` matter and they are not interchangeable: the left number is the host port your browser connects
+to, the right one is the port the app inside the container is actually listening on. `-p 80:80` alone publishes host
+80 to container 80, where nothing is listening, and the browser gets a connection reset that looks like the app
+failed to boot.
+
+If you want the app itself to listen on 80 — so that `-p 80:80` is the correct command — set `SERVER_PORT` too, and
+then publish that:
+
+```sh
+docker run -p 80:80 -e SERVER_PORT=80 saas-investigator
+```
+
+Two caveats before you reach for that, both of which are why `-p 80:8080` is the recommended form:
+
+- **It is Docker-only.** The image runs as uid 1000 (`runAsNonRoot` in
+  [`deploy/k8s/deployment.yaml`](../deploy/k8s/deployment.yaml) requires it). Docker sets
+  `net.ipv4.ip_unprivileged_port_start=0` inside containers so a non-root process can bind 80 there; containerd
+  under Kubernetes does not. `SERVER_PORT=80` therefore works on a laptop and crash-loops in a cluster with a
+  permission error on bind.
+- **`EXPOSE` and `HEALTHCHECK` do not follow it automatically.** `EXPOSE 8080` is only metadata and cannot read an
+  env var set at `docker run` time. The `HEALTHCHECK` does read `${SERVER_PORT:-8080}`, so it keeps working — but
+  anything else that hardcodes 8080 (the ECS task definition's `containerPort`, the k8s Service's `targetPort`,
+  the Prometheus scrape config) has to be changed in the same breath.
 
 ### Container fallbacks, and where the line is
 

@@ -71,6 +71,12 @@ docker build -t saas-investigator .
 docker run -p 8080:8080 saas-investigator
 ```
 
+That one port serves the UI *and* the API — the built frontend is a static resource inside the jar — so there is no
+reverse proxy in the image and no CORS in play. Use `-p 80:8080` to reach it at `http://localhost/` instead; the
+container still listens on 8080 either way. See
+[Ports, and why there is no reverse proxy](SETUP.md#ports-and-why-there-is-no-reverse-proxy) for why an in-image
+NGINX would cost you the SSE progress stream, and why TLS and hostnames belong to the Ingress/ALB layer below.
+
 ```mermaid
 flowchart LR
     Browser -->|":8080"| C

@@ -178,6 +178,11 @@ docker run -p 8080:8080 saas-investigator
 No env vars at all: the container starts its own MongoDB, generates its own encryption key, auto-generates a JWT
 secret, and seeds `admin`/`admin`.
 
+Keep `8080:8080` for this checkpoint so the `curl` commands above work unchanged against the container. Once it's
+verified, `-p 80:8080` gets you the UI at `http://localhost/` with no port in the URL — the container listens on
+8080 regardless, and one port serves both the UI and the API because the frontend ships inside the jar. Details in
+[SETUP.md](SETUP.md#ports-and-why-there-is-no-reverse-proxy).
+
 **You'll know it worked when:** the container gives you the same login and the same MVP loop as checkpoints 3–4,
 just self-contained. If it diverges, that's a real bug worth chasing before building further — the container is
 supposed to be the same app, not a different one.

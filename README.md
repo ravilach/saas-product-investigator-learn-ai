@@ -35,12 +35,18 @@ LLM does the comparing, on whatever schedule and at whatever depth you ask for. 
 
 ```sh
 docker build -t saas-investigator .
-docker run -p 8080:8080 saas-investigator
+docker run -p 80:8080 saas-investigator
 ```
 
-Open `http://localhost:8080`, log in as `admin` / `admin`, and add an Anthropic key from the Secrets tab in the
+Open `http://localhost/`, log in as `admin` / `admin`, and add an Anthropic key from the Secrets tab in the
 Admin Console. That's a complete, working instance — embedded MongoDB and a generated encryption key included, no
 other setup required. Rotate the default admin password before this is anything but a local demo.
+
+One port serves both the UI and the API: the built frontend ships inside the jar as static resources, so there is no
+reverse proxy in this image and nothing to configure to make the two halves talk. The container always listens on
+**8080**; `-p 80:8080` just publishes it where a browser will find it without a port in the URL. Prefer
+`-p 8080:8080` if 80 is already taken on your machine, or if you're following the `curl` examples in
+[`docs/API.md`](docs/API.md) and [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md), which all use 8080.
 
 _(The image is produced in BUILD ORDER step 11; until then use the local dev loop below.)_
 
